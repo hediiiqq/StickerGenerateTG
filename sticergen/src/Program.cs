@@ -1,25 +1,34 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
+using sticergen.Bot;
+using sticergen.Configuration;
+using sticergen.Infrastructure;
 using Telegram.Bot;
 
-var builder = Host.CreateApplicationBuilder(args);
-
-builder.Configuration.AddUserSecrets<Program>();
-
-var token = builder.Configuration["Telegram:BotToken"];
-
-if (string.IsNullOrWhiteSpace(token))
+var host = Host.CreateDefaultBuilder(args).ConfigureAppConfiguration((context, config) =>
 {
-    throw new InvalidOperationException("Telegram bot token is missing");
-}
+    config.SetBasePath(Directory.GetCurrentDirectory());
+    config.AddUserSecrets(typeof(Program).Assembly);
+}).ConfigureServices((context, services) =>
+{
+    var configuration = context.Configuration;
+    services.Configure<TelegramOptions>(configuration.GetSection("Telegram"));
 
-builder.Services.AddSingleton<ITelegramBotClient>(
-    new TelegramBotClient(token));
+    services.AddHostedService<TelegramBotHostedService>();
 
-using var host = builder.Build();
+    services.AddSingleton<ITelegramBotClient>(sp =>
+    {
+        var options = sp.GetRequiredService<IOptions<TelegramOptions>>().Value;
+        if (string.IsNullOrEmpty(options.BotToken))
+        {
+            throw new InvalidOperationException("Telegram bot token is missing");
+        }
 
-var botClient = host.Services.GetRequiredService<ITelegramBotClient>();
-var bot = await botClient.GetMe();
+        return new TelegramBotClient(options.BotToken);
+    });
+    services.AddSingleton<TelegramUpdateHandler>();
 
-Console.WriteLine($"Подключён бот: @{bot.Username}");
+}).Build();
+await host.RunAsync();
