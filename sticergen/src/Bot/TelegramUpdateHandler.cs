@@ -20,21 +20,36 @@ public class TelegramUpdateHandler
 
     public async Task HandleUpdateAsync(ITelegramBotClient botClient, Update upt, CancellationToken cancellationToken)
     {
-        if (upt.Message == null)
+        if (upt.Message == null) return;
+
+        var commandText = string.Empty;
+
+        if (upt.Message.Text != null)
+        {
+            commandText = upt.Message.Text;
+        }
+
+        else if (upt.Message.Caption != null)
+        {
+            commandText = upt.Message.Caption;
+        }
+        else
         {
             return;
         }
 
-        if (upt.Message.Text == null)
-        {
-            return;
-        }
+        var message = upt.Message;
 
+        var currentMessageHasPhoto = message.Photo != null && message.Photo.Length > 0;
+        var replyMessageHasPhoto = message.ReplyToMessage?.Photo != null && message.ReplyToMessage.Photo.Length > 0;
+
+        var hasPhoto = currentMessageHasPhoto || replyMessageHasPhoto;
+        Console.WriteLine($"Has photo: {hasPhoto}");
         using var scope = _serviceProvider.CreateScope();
         var handler = scope.ServiceProvider.GetRequiredService<CommandHandler>();
-        var message = upt.Message.Text;
 
-        var command = _parser.Parse(upt.Message.Text);
+
+        var command = _parser.Parse(commandText);
         if (upt.Message.From != null)
             await handler.HandleAsync(upt.Message.From.Id, upt.Message.Chat.Id, command, cancellationToken);
     }

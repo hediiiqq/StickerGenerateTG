@@ -28,7 +28,15 @@ public class CommandHandler
             }
             case TelegramCommands.Help:
             {
-                await _botClient.SendMessage(chatId, "help", cancellationToken: stoppingToken);
+                await _botClient.SendMessage(chatId,
+                    "/start — запустить бота\n" +
+                    "/help — показать помощь\n" +
+                    "/newpack static raw Название пака — создать черновик нового пака\n" +
+                    "/newpack static outline Название пака — создать черновик с outline-стилем\n" +
+                    "/addsticker pack_name raw — добавить стикер в существующий пак\n" +
+                    "/mypacks — показать мои черновики\n\n" +
+                    "Фото можно отправить с подписью-командой или написать команду ответом на фото.",
+                cancellationToken: stoppingToken);
                 break;
             }
             case TelegramCommands.Mypacks:
