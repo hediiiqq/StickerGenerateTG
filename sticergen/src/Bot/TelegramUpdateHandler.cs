@@ -1,3 +1,4 @@
+using sticergen.Bot.Commands;
 using Telegram.Bot;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
@@ -11,7 +12,7 @@ public class TelegramUpdateHandler
     private readonly CommandParser _parser;
     private readonly CommandHandler _handler;
 
-    public TelegramUpdateHandler(ITelegramBotClient bot,CommandParser parser,CommandHandler handler)
+    public TelegramUpdateHandler(ITelegramBotClient bot, CommandParser parser, CommandHandler handler)
     {
         _bot = bot;
         _parser = parser;
@@ -33,8 +34,7 @@ public class TelegramUpdateHandler
         var message = upt.Message.Text;
 
         var command = _parser.Parse(upt.Message.Text);
-        await _handler.HandleAsync(upt.Message.Chat.Id,command, cancellationToken);
-
+        await _handler.HandleAsync(upt.Message.Chat.Id, command, cancellationToken);
     }
 
     public Task HandleErrorAsync(

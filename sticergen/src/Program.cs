@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using sticergen.Bot;
+using sticergen.Bot.Commands;
 using sticergen.Configuration;
 using sticergen.Infrastructure;
 using Telegram.Bot;
@@ -31,6 +32,7 @@ var host = Host.CreateDefaultBuilder(args).ConfigureAppConfiguration((context, c
     services.AddSingleton<TelegramUpdateHandler>();
     services.AddSingleton<CommandParser>();
     services.AddSingleton<CommandHandler>();
+    services.AddSingleton<ArgumentsParser>();
 
 }).Build();
 await host.RunAsync();

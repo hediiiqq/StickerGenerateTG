@@ -1,6 +1,6 @@
-using sticergen.Bot.Commands;
+using sticergen.Bot.Models;
 
-namespace sticergen.Bot;
+namespace sticergen.Bot.Commands;
 
 public class CommandParser
 {
