@@ -1,11 +1,14 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using sticergen.Bot;
 using sticergen.Bot.Commands;
 using sticergen.Configuration;
+using sticergen.Data;
 using sticergen.Infrastructure;
+using sticergen.Services;
 using Telegram.Bot;
 
 var host = Host.CreateDefaultBuilder(args).ConfigureAppConfiguration((context, config) =>
@@ -16,8 +19,15 @@ var host = Host.CreateDefaultBuilder(args).ConfigureAppConfiguration((context, c
 {
     var configuration = context.Configuration;
     services.Configure<TelegramOptions>(configuration.GetSection("Telegram"));
+    var connectionString = configuration.GetConnectionString("DefaultConnection");
+    if (string.IsNullOrEmpty(connectionString))
+    {
+        throw new InvalidOperationException("DB connection string is missing");
+    }
 
     services.AddHostedService<TelegramBotHostedService>();
+    services.AddDbContext<AppDbContext>(options =>
+        options.UseNpgsql(connectionString));
 
     services.AddSingleton<ITelegramBotClient>(sp =>
     {
@@ -31,8 +41,10 @@ var host = Host.CreateDefaultBuilder(args).ConfigureAppConfiguration((context, c
     });
     services.AddSingleton<TelegramUpdateHandler>();
     services.AddSingleton<CommandParser>();
-    services.AddSingleton<CommandHandler>();
     services.AddSingleton<ArgumentsParser>();
+
+    services.AddScoped<CommandHandler>();
+    services.AddScoped<DraftService>();
 
 }).Build();
 await host.RunAsync();

@@ -1,0 +1,38 @@
+using Microsoft.EntityFrameworkCore;
+using sticergen.Bot.Models;
+using sticergen.Data;
+using sticergen.Data.Models;
+
+namespace sticergen.Services;
+
+public class DraftService
+{
+    private readonly AppDbContext _db;
+
+    public DraftService(AppDbContext db)
+    {
+        _db = db;
+    }
+
+    public async Task<Draft> CreateNewPackDraftAsync(long userId, long chatId, NewPackCommandArgs args,
+        CancellationToken cancellationToken)
+    {
+        var draft = new Draft();
+        draft.UserId = userId;
+        draft.ChatId = chatId;
+        draft.Mode = "newpack";
+        draft.PackTitle = args.PackTitle;
+        draft.StickerType = args.StickerType;
+        draft.Style = args.Style;
+        draft.Status = "pending";
+        draft.CreatedAt = DateTime.UtcNow;
+        _db.Drafts.Add(draft);
+        await _db.SaveChangesAsync(cancellationToken);
+        return draft;
+    }
+
+    public async Task<List<Draft>> GetUserDraftsAsync(long userId, CancellationToken cancellationToken)
+    {
+        return await _db.Drafts.Where(x => x.UserId == userId).ToListAsync(cancellationToken);
+    }
+}

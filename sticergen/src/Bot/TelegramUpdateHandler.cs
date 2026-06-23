@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using sticergen.Bot.Commands;
 using Telegram.Bot;
 using Telegram.Bot.Polling;
@@ -8,15 +9,13 @@ namespace sticergen.Bot;
 
 public class TelegramUpdateHandler
 {
-    private readonly ITelegramBotClient _bot;
     private readonly CommandParser _parser;
-    private readonly CommandHandler _handler;
+    private readonly IServiceScopeFactory _serviceProvider;
 
-    public TelegramUpdateHandler(ITelegramBotClient bot, CommandParser parser, CommandHandler handler)
+    public TelegramUpdateHandler(CommandParser parser, IServiceScopeFactory serviceProvider)
     {
-        _bot = bot;
         _parser = parser;
-        _handler = handler;
+        _serviceProvider = serviceProvider;
     }
 
     public async Task HandleUpdateAsync(ITelegramBotClient botClient, Update upt, CancellationToken cancellationToken)
@@ -31,10 +30,13 @@ public class TelegramUpdateHandler
             return;
         }
 
+        using var scope = _serviceProvider.CreateScope();
+        var handler = scope.ServiceProvider.GetRequiredService<CommandHandler>();
         var message = upt.Message.Text;
 
         var command = _parser.Parse(upt.Message.Text);
-        await _handler.HandleAsync(upt.Message.Chat.Id, command, cancellationToken);
+        if (upt.Message.From != null)
+            await handler.HandleAsync(upt.Message.From.Id, upt.Message.Chat.Id, command, cancellationToken);
     }
 
     public Task HandleErrorAsync(
