@@ -17,18 +17,18 @@ public class CommandHandler
         _draftService = draftService;
     }
 
-    public async Task HandleAsync(long userId, long chatId, CommandModel command, CancellationToken stoppingToken)
+    public async Task HandleAsync(BotCommandContext context, CancellationToken stoppingToken)
     {
-        switch (command.Type)
+        switch (context.Command.Type)
         {
             case TelegramCommands.Start:
             {
-                await _botClient.SendMessage(chatId, "start", cancellationToken: stoppingToken);
+                await _botClient.SendMessage(context.ChatId, "start", cancellationToken: stoppingToken);
                 break;
             }
             case TelegramCommands.Help:
             {
-                await _botClient.SendMessage(chatId,
+                await _botClient.SendMessage(context.ChatId,
                     "/start — запустить бота\n" +
                     "/help — показать помощь\n" +
                     "/newpack static raw Название пака — создать черновик нового пака\n" +
@@ -36,17 +36,12 @@ public class CommandHandler
                     "/addsticker pack_name raw — добавить стикер в существующий пак\n" +
                     "/mypacks — показать мои черновики\n\n" +
                     "Фото можно отправить с подписью-командой или написать команду ответом на фото.",
-                cancellationToken: stoppingToken);
+                    cancellationToken: stoppingToken);
                 break;
             }
             case TelegramCommands.Mypacks:
             {
-                var mypacks = await _draftService.GetUserDraftsAsync(userId, stoppingToken);
-                if (mypacks is null)
-                {
-                    await _botClient.SendMessage(chatId, "mypacks is empty", cancellationToken: stoppingToken);
-                }
-                else
+                var mypacks = await _draftService.GetUserDraftsAsync(context.UserId, stoppingToken);
                 {
                     var message = "your packs:\n";
                     foreach (var mypack in mypacks)
@@ -54,36 +49,39 @@ public class CommandHandler
                         message += $"#{mypack.Mode} {mypack.Status} - {mypack.PackTitle}\n";
                     }
 
-                    await _botClient.SendMessage(chatId, message, cancellationToken: stoppingToken);
+                    await _botClient.SendMessage(context.ChatId, message, cancellationToken: stoppingToken);
                 }
 
                 break;
             }
             case TelegramCommands.Newpack:
             {
-                var args = _parser.ParseNewPack(command.Arguments);
-                await _draftService.CreateNewPackDraftAsync(userId, chatId, args, stoppingToken);
-                await _botClient.SendMessage(chatId,
-                    $"newpack\n stickertype:{args.StickerType}\n style:{args.Style}\n packtitle:{args.PackTitle}",
+                var args = _parser.ParseNewPack(context.Command.Arguments);
+                await _draftService.CreateNewPackDraftAsync(context.UserId, context.ChatId,context.PhotoFileId, args, stoppingToken);
+                await _botClient.SendMessage(context.ChatId,
+                    $"newpack\n stickertype:{args.StickerType}\n" +
+                    $" style:{args.Style}\n packtitle:{args.PackTitle}\n " +
+                    $"photo:{context.HasPhoto}\n fileid:{context.PhotoFileId}",
                     cancellationToken: stoppingToken);
                 break;
             }
             case TelegramCommands.Addsticker:
             {
-                var args = _parser.ParseAddSticker(command.Arguments);
+                var args = _parser.ParseAddSticker(context.Command.Arguments);
 
-                await _botClient.SendMessage(chatId, $"addsticker\n packname:{args.PackName}\n style:{args.Style}",
+                await _botClient.SendMessage(context.ChatId,
+                    $"addsticker\n packname:{args.PackName}\n style:{args.Style}",
                     cancellationToken: stoppingToken);
                 break;
             }
             case TelegramCommands.Unknown:
             {
-                await _botClient.SendMessage(chatId, "unknown", cancellationToken: stoppingToken);
+                await _botClient.SendMessage(context.ChatId, "unknown", cancellationToken: stoppingToken);
                 break;
             }
             default:
             {
-                await _botClient.SendMessage(chatId, "unknown", cancellationToken: stoppingToken);
+                await _botClient.SendMessage(context.ChatId, "unknown", cancellationToken: stoppingToken);
                 break;
             }
         }

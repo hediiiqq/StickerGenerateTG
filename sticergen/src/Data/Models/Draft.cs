@@ -10,7 +10,7 @@ public class Draft
     public string PackName { get; set; } = string.Empty;
     public string StickerType { get; set; } = string.Empty;
     public string Style { get; set; } = string.Empty;
-    public string Status  { get; set; } = "pending";
+    public string Status { get; set; } = "pending";
     public DateTime CreatedAt { get; set; }
-
+    public List<DraftSticker> Stickers { get; set; } = new();
 }

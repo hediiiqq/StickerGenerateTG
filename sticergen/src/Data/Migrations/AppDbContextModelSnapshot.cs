@@ -67,6 +67,51 @@ namespace sticergen.src.Data.Migrations
 
                     b.ToTable("Drafts");
                 });
+
+            modelBuilder.Entity("sticergen.Data.Models.DraftSticker", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("DraftId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Emoji")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TelegramFileId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DraftId");
+
+                    b.ToTable("DraftStickers");
+                });
+
+            modelBuilder.Entity("sticergen.Data.Models.DraftSticker", b =>
+                {
+                    b.HasOne("sticergen.Data.Models.Draft", "Draft")
+                        .WithMany("Stickers")
+                        .HasForeignKey("DraftId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Draft");
+                });
+
+            modelBuilder.Entity("sticergen.Data.Models.Draft", b =>
+                {
+                    b.Navigation("Stickers");
+                });
 #pragma warning restore 612, 618
         }
     }

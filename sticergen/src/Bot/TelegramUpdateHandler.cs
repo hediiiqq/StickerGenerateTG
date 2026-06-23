@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using sticergen.Bot.Commands;
+using sticergen.Bot.Models;
 using Telegram.Bot;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
@@ -20,38 +21,58 @@ public class TelegramUpdateHandler
 
     public async Task HandleUpdateAsync(ITelegramBotClient botClient, Update upt, CancellationToken cancellationToken)
     {
-        if (upt.Message == null) return;
+        var message = upt.Message;
+        if (message == null) return;
 
-        var commandText = string.Empty;
+        string commandText;
 
-        if (upt.Message.Text != null)
+        if (message.Text != null)
         {
-            commandText = upt.Message.Text;
+            commandText = message.Text;
         }
 
-        else if (upt.Message.Caption != null)
+        else if (message.Caption != null)
         {
-            commandText = upt.Message.Caption;
+            commandText = message.Caption;
         }
         else
         {
             return;
         }
 
-        var message = upt.Message;
+        PhotoSize[]? photos = null;
+        if (message.Photo != null)
+        {
+            photos = message.Photo;
+        }
+        else if (message.ReplyToMessage?.Photo != null)
+        {
+            photos = message.ReplyToMessage.Photo;
+        }
 
-        var currentMessageHasPhoto = message.Photo != null && message.Photo.Length > 0;
-        var replyMessageHasPhoto = message.ReplyToMessage?.Photo != null && message.ReplyToMessage.Photo.Length > 0;
+        var photoFileId = photos?.Last().FileId;
 
-        var hasPhoto = currentMessageHasPhoto || replyMessageHasPhoto;
-        Console.WriteLine($"Has photo: {hasPhoto}");
+
         using var scope = _serviceProvider.CreateScope();
         var handler = scope.ServiceProvider.GetRequiredService<CommandHandler>();
 
 
         var command = _parser.Parse(commandText);
-        if (upt.Message.From != null)
-            await handler.HandleAsync(upt.Message.From.Id, upt.Message.Chat.Id, command, cancellationToken);
+
+
+        if (message.From != null)
+        {
+            var context = new BotCommandContext
+            {
+                UserId = message.From.Id,
+                ChatId = message.Chat.Id,
+                Command = command,
+                PhotoFileId = photoFileId,
+                HasPhoto = photoFileId != null,
+            };
+
+            await handler.HandleAsync(context, cancellationToken);
+        }
     }
 
     public Task HandleErrorAsync(
@@ -60,7 +81,7 @@ public class TelegramUpdateHandler
         HandleErrorSource source,
         CancellationToken cancellationToken)
     {
-        Console.WriteLine(exception.Message);
+        Console.WriteLine(exception);
         return Task.CompletedTask;
     }
 }

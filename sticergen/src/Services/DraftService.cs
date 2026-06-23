@@ -14,7 +14,8 @@ public class DraftService
         _db = db;
     }
 
-    public async Task<Draft> CreateNewPackDraftAsync(long userId, long chatId, NewPackCommandArgs args,
+    public async Task<Draft> CreateNewPackDraftAsync(long userId, long chatId, string? photoFileId,
+        NewPackCommandArgs args,
         CancellationToken cancellationToken)
     {
         var draft = new Draft();
@@ -27,6 +28,14 @@ public class DraftService
         draft.Status = "pending";
         draft.CreatedAt = DateTime.UtcNow;
         _db.Drafts.Add(draft);
+        if (photoFileId != null)
+        {
+            var draftstiker = new DraftSticker();
+            draftstiker.TelegramFileId = photoFileId;
+            draftstiker.SortOrder = 0;
+            draft.Stickers.Add(draftstiker);
+        }
+
         await _db.SaveChangesAsync(cancellationToken);
         return draft;
     }
