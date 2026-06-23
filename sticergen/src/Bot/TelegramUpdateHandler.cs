@@ -8,10 +8,14 @@ namespace sticergen.Bot;
 public class TelegramUpdateHandler
 {
     private readonly ITelegramBotClient _bot;
+    private readonly CommandParser _parser;
+    private readonly CommandHandler _handler;
 
-    public TelegramUpdateHandler(ITelegramBotClient bot)
+    public TelegramUpdateHandler(ITelegramBotClient bot,CommandParser parser,CommandHandler handler)
     {
         _bot = bot;
+        _parser = parser;
+        _handler = handler;
     }
 
     public async Task HandleUpdateAsync(ITelegramBotClient botClient, Update upt, CancellationToken cancellationToken)
@@ -26,17 +30,11 @@ public class TelegramUpdateHandler
             return;
         }
 
-        if (upt.Message.Text == "/start")
-        {
-            var chatId = upt.Message.Chat.Id;
-            await _bot.SendMessage(chatId, "hello");
-        }
+        var message = upt.Message.Text;
 
-        if (upt.Message.Text == "/help")
-        {
-            var chatId = upt.Message.Chat.Id;
-            await _bot.SendMessage(chatId, "help");
-        }
+        var command = _parser.Parse(upt.Message.Text);
+        await _handler.HandleAsync(upt.Message.Chat.Id,command, cancellationToken);
+
     }
 
     public Task HandleErrorAsync(

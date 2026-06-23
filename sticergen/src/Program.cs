@@ -29,6 +29,8 @@ var host = Host.CreateDefaultBuilder(args).ConfigureAppConfiguration((context, c
         return new TelegramBotClient(options.BotToken);
     });
     services.AddSingleton<TelegramUpdateHandler>();
+    services.AddSingleton<CommandParser>();
+    services.AddSingleton<CommandHandler>();
 
 }).Build();
 await host.RunAsync();
