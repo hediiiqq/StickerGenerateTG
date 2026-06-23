@@ -10,13 +10,16 @@ public class CommandHandler
     private readonly ArgumentsParser _parser;
     private readonly DraftService _draftService;
     private readonly FileStorageService _fileService;
+    private readonly ImageProcessingService _imageProcess;
 
-    public CommandHandler(ITelegramBotClient botClient, ArgumentsParser parser, DraftService draftService,FileStorageService fileService)
+    public CommandHandler(ITelegramBotClient botClient, ArgumentsParser parser, DraftService draftService,
+        FileStorageService fileService, ImageProcessingService imageProcess)
     {
         _botClient = botClient;
         _parser = parser;
         _draftService = draftService;
         _fileService = fileService;
+        _imageProcess = imageProcess;
     }
 
     public async Task HandleAsync(BotCommandContext context, CancellationToken stoppingToken)
@@ -70,21 +73,26 @@ public class CommandHandler
                     break;
                 }
 
-                var draft =  await _draftService.CreateNewPackDraftAsync(
+                var draft = await _draftService.CreateNewPackDraftAsync(
                     context.UserId,
                     context.ChatId,
                     context.PhotoFileId,
                     args,
                     stoppingToken);
 
-                await _fileService.SaveOriginalPhotoAsync(context.PhotoFileId,draft.Id, stoppingToken);
-
-                await _botClient.SendMessage(
-                    context.ChatId,
-                    $"newpack\n stickertype:{args.StickerType}\n" +
-                    $" style:{args.Style}\n packtitle:{args.PackTitle}\n " +
-                    $"photo:{context.HasPhoto}\n fileid:{context.PhotoFileId}",
-                    cancellationToken: stoppingToken);
+                if (context.PhotoFileId != null)
+                {
+                    var originalFilePath =
+                        await _fileService.SaveOriginalPhotoAsync(context.PhotoFileId, draft.Id, stoppingToken);
+                    Console.WriteLine(originalFilePath);
+                    var finalFilePath = _imageProcess.RawImage(originalFilePath, draft.Id, stoppingToken);
+                    await _botClient.SendMessage(
+                        context.ChatId,
+                        $"newpack\n stickertype:{args.StickerType}\n" +
+                        $" style:{args.Style}\n packtitle:{args.PackTitle}\n " +
+                        $"photo:{context.HasPhoto}\n fileid:{context.PhotoFileId}\n {finalFilePath}",
+                        cancellationToken: stoppingToken);
+                }
 
                 break;
             }

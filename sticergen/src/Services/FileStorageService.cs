@@ -15,7 +15,7 @@ public class FileStorageService
         _env = env;
     }
 
-    public async Task SaveOriginalPhotoAsync(string fileId,int draftId,CancellationToken cancellationToken)
+    public async Task<string> SaveOriginalPhotoAsync(string fileId,int draftId,CancellationToken cancellationToken)
     {
         var tgFile = await _botClient.GetFile(fileId, cancellationToken);
 
@@ -44,5 +44,6 @@ public class FileStorageService
         await using var stream = File.Create(filePath);
 
         await _botClient.DownloadFile(tgFile, stream, cancellationToken);
+        return filePath;
     }
 }
