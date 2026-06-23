@@ -9,12 +9,14 @@ public class CommandHandler
     private readonly ITelegramBotClient _botClient;
     private readonly ArgumentsParser _parser;
     private readonly DraftService _draftService;
+    private readonly FileStorageService _fileService;
 
-    public CommandHandler(ITelegramBotClient botClient, ArgumentsParser parser, DraftService draftService)
+    public CommandHandler(ITelegramBotClient botClient, ArgumentsParser parser, DraftService draftService,FileStorageService fileService)
     {
         _botClient = botClient;
         _parser = parser;
         _draftService = draftService;
+        _fileService = fileService;
     }
 
     public async Task HandleAsync(BotCommandContext context, CancellationToken stoppingToken)
@@ -46,7 +48,7 @@ public class CommandHandler
                     var message = "your packs:\n";
                     foreach (var mypack in mypacks)
                     {
-                        message += $"#{mypack.Mode} {mypack.Status} - {mypack.PackTitle}\n";
+                        message += $"#{mypack.Mode} {mypack.Status} - {mypack.PackTitle} - {mypack.Stickers.Count}\n";
                     }
 
                     await _botClient.SendMessage(context.ChatId, message, cancellationToken: stoppingToken);
@@ -57,12 +59,33 @@ public class CommandHandler
             case TelegramCommands.Newpack:
             {
                 var args = _parser.ParseNewPack(context.Command.Arguments);
-                await _draftService.CreateNewPackDraftAsync(context.UserId, context.ChatId,context.PhotoFileId, args, stoppingToken);
-                await _botClient.SendMessage(context.ChatId,
+
+                if (!context.HasPhoto)
+                {
+                    await _botClient.SendMessage(
+                        context.ChatId,
+                        "Прикрепи фото к команде или отправь команду ответом на фото.",
+                        cancellationToken: stoppingToken);
+
+                    break;
+                }
+
+                var draft =  await _draftService.CreateNewPackDraftAsync(
+                    context.UserId,
+                    context.ChatId,
+                    context.PhotoFileId,
+                    args,
+                    stoppingToken);
+
+                await _fileService.SaveOriginalPhotoAsync(context.PhotoFileId,draft.Id, stoppingToken);
+
+                await _botClient.SendMessage(
+                    context.ChatId,
                     $"newpack\n stickertype:{args.StickerType}\n" +
                     $" style:{args.Style}\n packtitle:{args.PackTitle}\n " +
                     $"photo:{context.HasPhoto}\n fileid:{context.PhotoFileId}",
                     cancellationToken: stoppingToken);
+
                 break;
             }
             case TelegramCommands.Addsticker:

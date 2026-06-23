@@ -42,6 +42,9 @@ public class DraftService
 
     public async Task<List<Draft>> GetUserDraftsAsync(long userId, CancellationToken cancellationToken)
     {
-        return await _db.Drafts.Where(x => x.UserId == userId).ToListAsync(cancellationToken);
+        var drafts = await _db.Drafts.Where(x => x.UserId == userId)
+            .Include(x => x.Stickers)
+            .ToListAsync(cancellationToken);
+        return drafts;
     }
 }
