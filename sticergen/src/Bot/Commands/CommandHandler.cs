@@ -1,16 +1,17 @@
-using sticergen.Bot.Commands;
+using sticergen.Bot.Models;
 using Telegram.Bot;
 
-
-namespace sticergen.Bot;
+namespace sticergen.Bot.Commands;
 
 public class CommandHandler
 {
     private readonly ITelegramBotClient _botClient;
+    private readonly ArgumentsParser _parser;
 
-    public CommandHandler(ITelegramBotClient botClient)
+    public CommandHandler(ITelegramBotClient botClient, ArgumentsParser parser)
     {
         _botClient = botClient;
+        _parser = parser;
     }
 
     public async Task HandleAsync(long chatId, CommandModel command, CancellationToken stoppingToken)
@@ -29,17 +30,22 @@ public class CommandHandler
             }
             case TelegramCommands.Mypacks:
             {
-                await _botClient.SendMessage(chatId, "mypacks", cancellationToken: stoppingToken);
+                await _botClient.SendMessage(chatId, $"mypacks:{command.Arguments}", cancellationToken: stoppingToken);
                 break;
             }
             case TelegramCommands.Newpack:
             {
-                await _botClient.SendMessage(chatId, "newpack", cancellationToken: stoppingToken);
+                var args = _parser.ParseNewPack(command.Arguments);
+                await _botClient.SendMessage(chatId,
+                    $"newpack\n stickertype:{args.StickerType}\n style:{args.Style}\n packtitle:{args.PackTitle}",
+                    cancellationToken: stoppingToken);
                 break;
             }
             case TelegramCommands.Addsticker:
             {
-                await _botClient.SendMessage(chatId, "addsticker", cancellationToken: stoppingToken);
+                var args = _parser.ParseAddSticker(command.Arguments);
+                await _botClient.SendMessage(chatId, $"addsticker\n packname:{args.PackName}\n style:{args.Style}",
+                    cancellationToken: stoppingToken);
                 break;
             }
             case TelegramCommands.Unknown:

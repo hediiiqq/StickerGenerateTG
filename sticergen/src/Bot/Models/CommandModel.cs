@@ -1,4 +1,6 @@
-namespace sticergen.Bot.Commands;
+using sticergen.Bot.Commands;
+
+namespace sticergen.Bot.Models;
 
 public class CommandModel
 {
