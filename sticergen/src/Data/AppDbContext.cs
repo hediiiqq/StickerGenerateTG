@@ -12,6 +12,7 @@ public class AppDbContext : DbContext
     }
     public DbSet<Draft> Drafts { get; set; }
     public DbSet<DraftSticker> DraftStickers { get; set; }
+    public DbSet<StickerPack> StickerPacks { get; set; }
 
 
 }
