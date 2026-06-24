@@ -25,6 +25,7 @@ public class CommandHandler
 
     public async Task HandleAsync(BotCommandContext context, CancellationToken stoppingToken)
     {
+        // CommandHandler отвечает за реакцию бота после того, как CommandParser уже распознал команду.
         switch (context.Command.Type)
         {
             case TelegramCommands.Start:
@@ -47,6 +48,7 @@ public class CommandHandler
             }
             case TelegramCommands.Mypacks:
             {
+                // Получаем все черновики текущего пользователя, чтобы показать их в /mypacks.
                 var mypacks = await _draftService.GetUserDraftsAsync(context.UserId, stoppingToken);
                 {
                     var message = "your packs:\n";
@@ -62,8 +64,10 @@ public class CommandHandler
             }
             case TelegramCommands.Newpack:
             {
+                // Аргументы команды отделены от имени команды и разбираются отдельно.
                 var args = _parser.ParseNewPack(context.Command.Arguments);
 
+                // Новый стикерпак создаётся только при наличии фотографии.
                 if (!context.HasPhoto)
                 {
                     await _botClient.SendMessage(
@@ -86,6 +90,7 @@ public class CommandHandler
                     var originalFilePath =
                         await _fileService.SaveOriginalPhotoAsync(context.PhotoFileId, draft.Id, stoppingToken);
                     Console.WriteLine(originalFilePath);
+                    // RawImage подготавливает превью стикера и возвращает путь к готовому PNG-файлу.
                     var finalFilePath = await _imageProcess.RawImage(originalFilePath, draft.Id, stoppingToken);
                     await using var previewStream = File.OpenRead(finalFilePath);
                     await _botClient.SendPhoto(
@@ -105,6 +110,7 @@ public class CommandHandler
             }
             case TelegramCommands.Addsticker:
             {
+                // Для добавления стикера пока разбираем только имя пака и стиль.
                 var args = _parser.ParseAddSticker(context.Command.Arguments);
 
                 await _botClient.SendMessage(context.ChatId,

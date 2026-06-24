@@ -17,6 +17,7 @@ public class ImageProcessingService
     {
         var rootPath = _env.ContentRootPath;
 
+        // При запуске из bin/Debug/... возвращаемся к корню проекта, чтобы storage лежал рядом с исходниками.
         var binIndex = rootPath.IndexOf(
             $"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}",
             StringComparison.Ordinal);
@@ -33,11 +34,13 @@ public class ImageProcessingService
 
         using var sourceBitmap = SKBitmap.Decode(filePath);
 
+        // Telegram-стикеры готовим на прозрачном квадратном холсте 512x512 пикселей.
         using var surface = SKSurface.Create(new SKImageInfo(512, 512));
         var canvas = surface.Canvas;
 
         canvas.Clear(SKColors.Transparent);
 
+        // Выбираем меньший масштаб, чтобы вся фотография поместилась в квадрат без обрезки.
         var scale = Math.Min(
             512f / sourceBitmap.Width,
             512f / sourceBitmap.Height);
@@ -45,6 +48,7 @@ public class ImageProcessingService
         var newWidth = sourceBitmap.Width * scale;
         var newHeight = sourceBitmap.Height * scale;
 
+        // Центрируем уменьшенное изображение внутри квадратного холста.
         var left = (512 - newWidth) / 2;
         var top = (512 - newHeight) / 2;
 
@@ -65,6 +69,7 @@ public class ImageProcessingService
         using var data = image.Encode(SKEncodedImageFormat.Png, 100);
         using var output = File.OpenWrite(finalFilePath);
 
+        // Сохраняем готовое превью в storage/final и возвращаем путь к файлу.
         data.SaveTo(output);
 
         return Task.FromResult(finalFilePath);
