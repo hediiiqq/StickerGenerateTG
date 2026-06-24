@@ -14,9 +14,8 @@ public class DraftService
         _db = db;
     }
 
-    public async Task<Draft> CreateNewPackDraftAsync(long userId, long chatId, string? photoFileId,
-        NewPackCommandArgs args,
-        CancellationToken cancellationToken)
+    public async Task<Draft> CreateNewPackDraftAsync(
+        long userId, long chatId, string? photoFileId, NewPackCommandArgs args, CancellationToken cancellationToken)
     {
         var draft = new Draft();
         draft.UserId = userId;
@@ -38,6 +37,16 @@ public class DraftService
 
         await _db.SaveChangesAsync(cancellationToken);
         return draft;
+    }
+
+    public async Task<DraftSticker> UpdateDraftStickerFilePathsAsync(int draftId,string originalFile, string finalFile, CancellationToken cancellationToken)
+    {
+        var sticker = await _db.DraftStickers.FirstOrDefaultAsync(x => x.DraftId == draftId, cancellationToken);
+        if (sticker == null)  return null;
+        sticker.OriginalFilePath = originalFile;
+        sticker.FilnalFilePath = finalFile;
+        await _db.SaveChangesAsync(cancellationToken);
+        return sticker;
     }
 
     public async Task<List<Draft>> GetUserDraftsAsync(long userId, CancellationToken cancellationToken)

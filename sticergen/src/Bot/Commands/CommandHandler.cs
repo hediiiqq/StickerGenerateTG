@@ -92,6 +92,9 @@ public class CommandHandler
                     Console.WriteLine(originalFilePath);
                     // RawImage подготавливает превью стикера и возвращает путь к готовому PNG-файлу.
                     var finalFilePath = await _imageProcess.RawImage(originalFilePath, draft.Id, stoppingToken);
+
+                    await _draftService.UpdateDraftStickerFilePathsAsync( draft.Id,originalFilePath, finalFilePath, stoppingToken);
+
                     await using var previewStream = File.OpenRead(finalFilePath);
                     await _botClient.SendPhoto(
                         context.ChatId,
