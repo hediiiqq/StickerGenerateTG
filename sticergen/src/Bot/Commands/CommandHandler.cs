@@ -12,15 +12,17 @@ public class CommandHandler
     private readonly DraftService _draftService;
     private readonly FileStorageService _fileService;
     private readonly ImageProcessingService _imageProcess;
+    private readonly StickerPackService _stickerPack;
 
     public CommandHandler(ITelegramBotClient botClient, ArgumentsParser parser, DraftService draftService,
-        FileStorageService fileService, ImageProcessingService imageProcess)
+        FileStorageService fileService, ImageProcessingService imageProcess, StickerPackService stickerPack)
     {
         _botClient = botClient;
         _parser = parser;
         _draftService = draftService;
         _fileService = fileService;
         _imageProcess = imageProcess;
+        _stickerPack = stickerPack;
     }
 
     public async Task HandleAsync(BotCommandContext context, CancellationToken stoppingToken)
@@ -54,7 +56,7 @@ public class CommandHandler
                     var message = "your packs:\n";
                     foreach (var mypack in mypacks)
                     {
-                        message += $"#{mypack.Mode} {mypack.Status} - {mypack.PackTitle} - {mypack.Stickers.Count}\n";
+                        message += $"#{mypack.Mode} {mypack.Status} - {mypack.PackTitle} - {mypack.Stickers.Count} \n";
                     }
 
                     await _botClient.SendMessage(context.ChatId, message, cancellationToken: stoppingToken);
@@ -96,6 +98,9 @@ public class CommandHandler
                     await _draftService.UpdateDraftStickerFilePathsAsync( draft.Id,originalFilePath, finalFilePath, stoppingToken);
 
                     await using var previewStream = File.OpenRead(finalFilePath);
+
+                    var stickerLink = await _stickerPack.CreateStickerPackAsync(draft.Id, stoppingToken);
+
                     await _botClient.SendPhoto(
                         context.ChatId,
                         InputFile.FromStream(stream: previewStream, fileName: "preview.png"),
@@ -105,7 +110,8 @@ public class CommandHandler
                         context.ChatId,
                         $"newpack\n stickertype:{args.StickerType}\n" +
                         $" style:{args.Style}\n packtitle:{args.PackTitle}\n " +
-                        $"photo:{context.HasPhoto}\n fileid:{context.PhotoFileId}\n {finalFilePath}",
+                        $"photo:{context.HasPhoto}\n fileid:{context.PhotoFileId}\n {finalFilePath}\n" +
+                        $"link :{stickerLink}",
                         cancellationToken: stoppingToken);
                 }
 

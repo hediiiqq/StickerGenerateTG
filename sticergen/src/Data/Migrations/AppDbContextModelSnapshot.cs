@@ -83,7 +83,7 @@ namespace sticergen.src.Data.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("FilnalFilePath")
+                    b.Property<string>("FinalFilePath")
                         .IsRequired()
                         .HasColumnType("text");
 

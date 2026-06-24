@@ -47,6 +47,7 @@ var host = Host.CreateDefaultBuilder(args).ConfigureAppConfiguration((context, c
     services.AddScoped<DraftService>();
     services.AddScoped<FileStorageService>();
     services.AddScoped<ImageProcessingService>();
+    services.AddScoped<StickerPackService>();
 
 }).Build();
 await host.RunAsync();

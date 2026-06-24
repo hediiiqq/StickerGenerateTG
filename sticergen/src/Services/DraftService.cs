@@ -39,12 +39,12 @@ public class DraftService
         return draft;
     }
 
-    public async Task<DraftSticker> UpdateDraftStickerFilePathsAsync(int draftId,string originalFile, string finalFile, CancellationToken cancellationToken)
+    public async Task<DraftSticker?> UpdateDraftStickerFilePathsAsync(int draftId,string originalFile, string finalFile, CancellationToken cancellationToken)
     {
         var sticker = await _db.DraftStickers.FirstOrDefaultAsync(x => x.DraftId == draftId, cancellationToken);
         if (sticker == null)  return null;
         sticker.OriginalFilePath = originalFile;
-        sticker.FilnalFilePath = finalFile;
+        sticker.FinalFilePath = finalFile;
         await _db.SaveChangesAsync(cancellationToken);
         return sticker;
     }
