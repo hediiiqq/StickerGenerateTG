@@ -26,6 +26,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <Folder Include="storage\final\" />
       <Folder Include="storage\originals\" />
     </ItemGroup>
 

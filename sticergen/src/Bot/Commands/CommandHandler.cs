@@ -1,6 +1,7 @@
 using sticergen.Bot.Models;
 using sticergen.Services;
 using Telegram.Bot;
+using Telegram.Bot.Types;
 
 namespace sticergen.Bot.Commands;
 
@@ -85,7 +86,13 @@ public class CommandHandler
                     var originalFilePath =
                         await _fileService.SaveOriginalPhotoAsync(context.PhotoFileId, draft.Id, stoppingToken);
                     Console.WriteLine(originalFilePath);
-                    var finalFilePath = _imageProcess.RawImage(originalFilePath, draft.Id, stoppingToken);
+                    var finalFilePath = await _imageProcess.RawImage(originalFilePath, draft.Id, stoppingToken);
+                    await using var previewStream = File.OpenRead(finalFilePath);
+                    await _botClient.SendPhoto(
+                        context.ChatId,
+                        InputFile.FromStream(stream: previewStream, fileName: "preview.png"),
+                        caption: "Preview raw 512x512",
+                        cancellationToken: stoppingToken);
                     await _botClient.SendMessage(
                         context.ChatId,
                         $"newpack\n stickertype:{args.StickerType}\n" +
