@@ -69,7 +69,7 @@ public class StickerPackService
         stickerPack.PackName = packName;
         stickerPack.PackTitle = packTitle;
         stickerPack.StickerType = "static";
-        stickerPack.CreatedAt = DateTime.Now;
+        stickerPack.CreatedAt = DateTime.UtcNow;
         await _db.StickerPacks.AddAsync(stickerPack, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
 
