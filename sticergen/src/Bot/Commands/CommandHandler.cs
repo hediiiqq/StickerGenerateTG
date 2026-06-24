@@ -30,7 +30,9 @@ public class CommandHandler
         {
             case TelegramCommands.Start:
             {
-                await _botClient.SendMessage(context.ChatId, "start", cancellationToken: stoppingToken);
+                await _botClient.SendMessage(context.ChatId,
+                    "Привет! Я помогу создать набор стикеров из ваших фотографий." +
+                    "\n Используйте /help, чтобы посмотреть список команд.", cancellationToken: stoppingToken);
                 break;
             }
             case TelegramCommands.Help:
@@ -51,7 +53,7 @@ public class CommandHandler
                 // Получаем все черновики текущего пользователя, чтобы показать их в /mypacks.
                 var mypacks = await _draftService.GetUserDraftsAsync(context.UserId, stoppingToken);
                 {
-                    var message = "your packs:\n";
+                    var message = "Ваши стикерпаки:\n";
                     foreach (var mypack in mypacks)
                     {
                         message += $"#{mypack.Mode} {mypack.Status} - {mypack.PackTitle} - {mypack.Stickers.Count}\n";
@@ -120,12 +122,16 @@ public class CommandHandler
             }
             case TelegramCommands.Unknown:
             {
-                await _botClient.SendMessage(context.ChatId, "unknown", cancellationToken: stoppingToken);
+                await _botClient.SendMessage(context.ChatId,
+                    "все доступные мне команды /help, остальные я не понимаю",
+                    cancellationToken: stoppingToken);
                 break;
             }
             default:
             {
-                await _botClient.SendMessage(context.ChatId, "unknown", cancellationToken: stoppingToken);
+                await _botClient.SendMessage(context.ChatId,
+                    "все доступные мне команды /help, остальные я не понимаю",
+                    cancellationToken: stoppingToken);
                 break;
             }
         }
