@@ -11,11 +11,13 @@ public class StickerPackService
 {
     private readonly ITelegramBotClient _botClient;
     private readonly AppDbContext _db;
+    private readonly PackNameGenerator _nameGen;
 
-    public StickerPackService(AppDbContext db, ITelegramBotClient botClient)
+    public StickerPackService(AppDbContext db, ITelegramBotClient botClient, PackNameGenerator nameGen)
     {
         _db = db;
         _botClient = botClient;
+        _nameGen = nameGen;
     }
 
     public async Task<string?> CreateStickerPackAsync(int draftId, CancellationToken cancellationToken)
@@ -34,7 +36,10 @@ public class StickerPackService
 
         var bot = await _botClient.GetMe(cancellationToken);
 
-        var packName = $"pack_{draft.UserId}_{draft.Id}_by_{bot.Username}";
+
+        var packName = _nameGen.Generate(draft.PackTitle, draft.UserId, draft.Id, bot.Username);
+
+
         var packTitle = draft.PackTitle;
 
         await using var stream = File.OpenRead(firstSticker.FinalFilePath);
