@@ -42,11 +42,13 @@ var host = Host.CreateDefaultBuilder(args).ConfigureAppConfiguration((context, c
     services.AddSingleton<TelegramUpdateHandler>();
     services.AddSingleton<CommandParser>();
     services.AddSingleton<ArgumentsParser>();
+    services.AddSingleton<PackNameGenerator>();
 
     services.AddScoped<CommandHandler>();
     services.AddScoped<DraftService>();
     services.AddScoped<FileStorageService>();
     services.AddScoped<ImageProcessingService>();
+    services.AddScoped<StickerPackService>();
 
 }).Build();
 await host.RunAsync();

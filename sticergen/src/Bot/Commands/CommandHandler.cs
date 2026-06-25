@@ -12,15 +12,17 @@ public class CommandHandler
     private readonly DraftService _draftService;
     private readonly FileStorageService _fileService;
     private readonly ImageProcessingService _imageProcess;
+    private readonly StickerPackService _stickerPack;
 
     public CommandHandler(ITelegramBotClient botClient, ArgumentsParser parser, DraftService draftService,
-        FileStorageService fileService, ImageProcessingService imageProcess)
+        FileStorageService fileService, ImageProcessingService imageProcess, StickerPackService stickerPack)
     {
         _botClient = botClient;
         _parser = parser;
         _draftService = draftService;
         _fileService = fileService;
         _imageProcess = imageProcess;
+        _stickerPack = stickerPack;
     }
 
     public async Task HandleAsync(BotCommandContext context, CancellationToken stoppingToken)
@@ -51,12 +53,12 @@ public class CommandHandler
             case TelegramCommands.Mypacks:
             {
                 // Получаем все черновики текущего пользователя, чтобы показать их в /mypacks.
-                var mypacks = await _draftService.GetUserDraftsAsync(context.UserId, stoppingToken);
+                var mypacks = await _stickerPack.GetStickerPacksAsync(context.UserId, stoppingToken);
                 {
                     var message = "Ваши стикерпаки:\n";
                     foreach (var mypack in mypacks)
                     {
-                        message += $"#{mypack.Mode} {mypack.Status} - {mypack.PackTitle} - {mypack.Stickers.Count}\n";
+                        message += $"{mypack.PackTitle} - {mypack.StickerType} - https://t.me/addstickers/{mypack.PackName}\n";
                     }
 
                     await _botClient.SendMessage(context.ChatId, message, cancellationToken: stoppingToken);
@@ -94,7 +96,13 @@ public class CommandHandler
                     Console.WriteLine(originalFilePath);
                     // RawImage подготавливает превью стикера и возвращает путь к готовому PNG-файлу.
                     var finalFilePath = await _imageProcess.RawImage(originalFilePath, draft.Id, stoppingToken);
+
+                    await _draftService.UpdateDraftStickerFilePathsAsync( draft.Id,originalFilePath, finalFilePath, stoppingToken);
+
                     await using var previewStream = File.OpenRead(finalFilePath);
+
+                    var stickerLink = await _stickerPack.CreateStickerPackAsync(draft.Id, stoppingToken);
+
                     await _botClient.SendPhoto(
                         context.ChatId,
                         InputFile.FromStream(stream: previewStream, fileName: "preview.png"),
@@ -104,7 +112,8 @@ public class CommandHandler
                         context.ChatId,
                         $"newpack\n stickertype:{args.StickerType}\n" +
                         $" style:{args.Style}\n packtitle:{args.PackTitle}\n " +
-                        $"photo:{context.HasPhoto}\n fileid:{context.PhotoFileId}\n {finalFilePath}",
+                        $"photo:{context.HasPhoto}\n fileid:{context.PhotoFileId}\n {finalFilePath}\n" +
+                        $"link :{stickerLink}",
                         cancellationToken: stoppingToken);
                 }
 
@@ -114,6 +123,22 @@ public class CommandHandler
             {
                 // Для добавления стикера пока разбираем только имя пака и стиль.
                 var args = _parser.ParseAddSticker(context.Command.Arguments);
+
+                var parsPack =  await _stickerPack.ParseStickerPackAsync(args.PackName, context.UserId, stoppingToken);
+
+                if (parsPack == null)
+                {
+                    await _botClient.SendMessage(context.ChatId, "пак не найден", cancellationToken: stoppingToken);
+                    break;
+                }
+
+                if (!context.HasPhoto)
+                {
+                    await _botClient.SendMessage(context.ChatId,"Прикрепи фото",cancellationToken: stoppingToken);
+                    break;
+                }
+
+
 
                 await _botClient.SendMessage(context.ChatId,
                     $"addsticker\n packname:{args.PackName}\n style:{args.Style}",

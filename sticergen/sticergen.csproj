@@ -30,4 +30,8 @@
       <Folder Include="storage\originals\" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Content Include=".github\workflows\sync-main-to-pidor.yml" />
+    </ItemGroup>
+
 </Project>

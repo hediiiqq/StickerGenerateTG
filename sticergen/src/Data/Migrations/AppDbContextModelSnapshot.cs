@@ -83,7 +83,7 @@ namespace sticergen.src.Data.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("FilnalFilePath")
+                    b.Property<string>("FinalFilePath")
                         .IsRequired()
                         .HasColumnType("text");
 
@@ -103,6 +103,40 @@ namespace sticergen.src.Data.Migrations
                     b.HasIndex("DraftId");
 
                     b.ToTable("DraftStickers");
+                });
+
+            modelBuilder.Entity("sticergen.Data.Models.StickerPack", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<long>("ChatId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PackName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PackTitle")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("StickerType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("StickerPacks");
                 });
 
             modelBuilder.Entity("sticergen.Data.Models.DraftSticker", b =>
