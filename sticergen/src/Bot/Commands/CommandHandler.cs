@@ -52,15 +52,16 @@ public class CommandHandler
             {
                 // Получаем все черновики текущего пользователя, чтобы показать их в /mypacks.
                 var mypacks = await _stickerPack.GetStickerPacksAsync(context.UserId, stoppingToken);
-                {
-                    var message = "your packs:\n";
-                    foreach (var mypack in mypacks)
-                    {
-                        message += $"{mypack.PackTitle} - {mypack.StickerType} - https://t.me/addstickers/{mypack.PackName}\n";
-                    }
 
-                    await _botClient.SendMessage(context.ChatId, message, cancellationToken: stoppingToken);
+                var message = "your packs:\n";
+                foreach (var mypack in mypacks)
+                {
+                    message +=
+                        $"{mypack.PackTitle} - {mypack.StickerType} - https://t.me/addstickers/{mypack.PackName}\n";
                 }
+
+                await _botClient.SendMessage(context.ChatId, message, cancellationToken: stoppingToken);
+
 
                 break;
             }
@@ -95,7 +96,8 @@ public class CommandHandler
                     // RawImage подготавливает превью стикера и возвращает путь к готовому PNG-файлу.
                     var finalFilePath = await _imageProcess.RawImage(originalFilePath, draft.Id, stoppingToken);
 
-                    await _draftService.UpdateDraftStickerFilePathsAsync( draft.Id,originalFilePath, finalFilePath, stoppingToken);
+                    await _draftService.UpdateDraftStickerFilePathsAsync(draft.Id, originalFilePath, finalFilePath,
+                        stoppingToken);
 
                     await using var previewStream = File.OpenRead(finalFilePath);
 
@@ -122,7 +124,7 @@ public class CommandHandler
                 // Для добавления стикера пока разбираем только имя пака и стиль.
                 var args = _parser.ParseAddSticker(context.Command.Arguments);
 
-                var parsPack =  await _stickerPack.ParseStickerPackAsync(args.PackName, context.UserId, stoppingToken);
+                var parsPack = await _stickerPack.ParseStickerPackAsync(args.PackName, context.UserId, stoppingToken);
 
                 if (parsPack == null)
                 {
@@ -132,11 +134,18 @@ public class CommandHandler
 
                 if (!context.HasPhoto)
                 {
-                    await _botClient.SendMessage(context.ChatId,"Прикрепи фото",cancellationToken: stoppingToken);
+                    await _botClient.SendMessage(context.ChatId, "Прикрепи фото", cancellationToken: stoppingToken);
                     break;
                 }
 
+                await _draftService.CreateAddStickerDraftAsync(context.UserId, context.ChatId, context.PhotoFileId,
+                    args, parsPack, stoppingToken);
 
+                if (context.PhotoFileId != null)
+                {
+                    var originalFilePath =
+                        await _fileService.SaveOriginalPhotoAsync(context.PhotoFileId, parsPack.Id, stoppingToken);
+                }
 
                 await _botClient.SendMessage(context.ChatId,
                     $"addsticker\n packname:{args.PackName}\n style:{args.Style}",

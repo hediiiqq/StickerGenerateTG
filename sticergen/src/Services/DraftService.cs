@@ -57,4 +57,40 @@ public class DraftService
         return drafts;
     }
 
+    public async Task<Draft> CreateAddStickerDraftAsync(
+        long userId,
+        long chatId,
+        string? photoFileId,
+        AddStickerCommandArgs args,
+        StickerPack pack,
+        CancellationToken cancellationToken)
+    {
+        var draft = new Draft();
+
+        draft.UserId = userId;
+        draft.ChatId = chatId;
+        draft.Mode = "addsticker";
+        draft.PackName = pack.PackName;
+        draft.PackTitle = pack.PackTitle;
+        draft.StickerType = pack.StickerType;
+        draft.Style = args.Style;
+        draft.Status = "pending";
+        draft.CreatedAt = DateTime.UtcNow;
+
+        _db.Drafts.Add(draft);
+
+        if (photoFileId != null)
+        {
+            var draftSticker = new DraftSticker();
+
+            draftSticker.TelegramFileId = photoFileId;
+            draftSticker.SortOrder = 0;
+
+            draft.Stickers.Add(draftSticker);
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return draft;
+    }
 }
