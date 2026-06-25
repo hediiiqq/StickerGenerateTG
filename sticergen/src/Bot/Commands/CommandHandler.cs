@@ -16,6 +16,8 @@ public class CommandHandler
     private readonly FileStorageService _fileService;
     private readonly ImageProcessingService _imageProcess;
     private readonly StickerPackService _stickerPack;
+    private readonly ImageGenerationService _imageGeneration;
+    private readonly ImageGenerationSettingsService _imageSettings;
 
     public CommandHandler(
         ITelegramBotClient botClient,
@@ -23,7 +25,9 @@ public class CommandHandler
         DraftService draftService,
         FileStorageService fileService,
         ImageProcessingService imageProcess,
-        StickerPackService stickerPack)
+        StickerPackService stickerPack,
+        ImageGenerationService imageGeneration,
+        ImageGenerationSettingsService imageSettings)
     {
         _botClient = botClient;
         _parser = parser;
@@ -31,6 +35,8 @@ public class CommandHandler
         _fileService = fileService;
         _imageProcess = imageProcess;
         _stickerPack = stickerPack;
+        _imageGeneration = imageGeneration;
+        _imageSettings = imageSettings;
     }
 
     public async Task HandleAsync(BotCommandContext context, CancellationToken stoppingToken)
@@ -47,6 +53,18 @@ public class CommandHandler
 
             case TelegramCommands.Mypacks:
                 await SendMyPacksAsync(context, stoppingToken);
+                break;
+
+            case TelegramCommands.Aimodel:
+                await HandleAiModelAsync(context, stoppingToken);
+                break;
+
+            case TelegramCommands.Aimodels:
+                await SendAiModelsAsync(context, stoppingToken);
+                break;
+
+            case TelegramCommands.Aistatus:
+                await SendAiStatusAsync(context, stoppingToken);
                 break;
 
             case TelegramCommands.Newpack:
@@ -77,7 +95,11 @@ public class CommandHandler
             "/help — показать помощь\n" +
             "/newpack static raw Название пака — создать черновик нового пака\n" +
             "/newpack static outline Название пака — создать черновик с outline-стилем\n" +
+            "/newpack static ai Название пака | стиль — создать AI-стикер\n" +
             "/addsticker pack_name raw — добавить стикер в существующий пак\n" +
+            "/aistatus — показать активный AI provider/model\n" +
+            "/aimodels — показать доступные AI модели\n" +
+            "/aimodel provider model — переключить AI модель\n" +
             "/mypacks — показать мои черновики\n\n" +
             "Фото можно отправить с подписью-командой или написать команду ответом на фото.",
             cancellationToken: stoppingToken);
@@ -92,6 +114,57 @@ public class CommandHandler
         var message = "your packs:\n" + string.Join('\n', packLines);
 
         await _botClient.SendMessage(context.ChatId, message, cancellationToken: stoppingToken);
+    }
+
+    private async Task SendAiStatusAsync(BotCommandContext context, CancellationToken stoppingToken)
+    {
+        var setting = await _imageSettings.GetActiveAsync(stoppingToken);
+
+        await _botClient.SendMessage(
+            context.ChatId,
+            $"AI provider: {setting.Provider}\nAI model: {setting.Model}",
+            cancellationToken: stoppingToken);
+    }
+
+    private async Task SendAiModelsAsync(BotCommandContext context, CancellationToken stoppingToken)
+    {
+        await _botClient.SendMessage(
+            context.ChatId,
+            "Доступные AI модели:\n" +
+            ImageGenerationModelCatalog.FormatSupportedModels() +
+            "\n\nФормат переключения:\n/aimodel stability sd3.5-medium",
+            cancellationToken: stoppingToken);
+    }
+
+    private async Task HandleAiModelAsync(BotCommandContext context, CancellationToken stoppingToken)
+    {
+        var parts = context.Command.Arguments.Split(
+            ' ',
+            2,
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        if (parts.Length != 2)
+        {
+            await _botClient.SendMessage(
+                context.ChatId,
+                "Формат: /aimodel provider model\nНапример: /aimodel stability sd3.5-medium",
+                cancellationToken: stoppingToken);
+            return;
+        }
+
+        try
+        {
+            var setting = await _imageSettings.SetActiveAsync(parts[0], parts[1], stoppingToken);
+
+            await _botClient.SendMessage(
+                context.ChatId,
+                $"AI модель переключена:\nprovider: {setting.Provider}\nmodel: {setting.Model}",
+                cancellationToken: stoppingToken);
+        }
+        catch (InvalidOperationException ex)
+        {
+            await _botClient.SendMessage(context.ChatId, ex.Message, cancellationToken: stoppingToken);
+        }
     }
 
     private async Task HandleNewPackAsync(BotCommandContext context, CancellationToken stoppingToken)
@@ -145,7 +218,7 @@ public class CommandHandler
             stoppingToken);
 
         var originalFilePath = await _fileService.SaveOriginalPhotoAsync(photoFileId, draft.Id, stoppingToken);
-        var finalFilePath = await _imageProcess.RawImage(originalFilePath, draft.Id, stoppingToken);
+        var finalFilePath = await _imageGeneration.PrepareStickerImageAsync(originalFilePath,draft.Id,args.Style,args.StylePrompt, stoppingToken);
 
         await _draftService.UpdateDraftStickerFilePathsAsync(
             draft.Id,
@@ -205,7 +278,8 @@ public class CommandHandler
             stoppingToken);
 
         var originalFilePath = await _fileService.SaveOriginalPhotoAsync(photoFileId, draft.Id, stoppingToken);
-        var finalFilePath = await _imageProcess.RawImage(originalFilePath, draft.Id, stoppingToken);
+        var finalFilePath = await _imageGeneration.PrepareStickerImageAsync(originalFilePath,draft.Id,args.Style,string.Empty, stoppingToken);
+
 
         await _draftService.UpdateDraftStickerFilePathsAsync(
             draft.Id,
@@ -245,12 +319,13 @@ public class CommandHandler
         string finalFilePath,
         CancellationToken stoppingToken)
     {
-        await using var previewStream = File.OpenRead(finalFilePath);
+        var previewFilePath = await _imageProcess.CreatePreviewPngAsync(finalFilePath, stoppingToken);
+        await using var previewStream = File.OpenRead(previewFilePath);
 
         await _botClient.SendPhoto(
             chatId,
             InputFile.FromStream(stream: previewStream, fileName: PreviewFileName),
-            caption: "Preview raw 512x512",
+            caption: "Preview 512x512",
             cancellationToken: stoppingToken);
     }
 

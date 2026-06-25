@@ -5,7 +5,9 @@ namespace sticergen.Services;
 
 public class ImageProcessingService
 {
+    private const int MaxStickerFileBytes = 512 * 1024;
     private const int StickerSize = 512;
+    private static readonly int[] WebpQualitySteps = [90, 80, 70, 60, 50, 40, 30, 20];
 
     private readonly IHostEnvironment _env;
 
@@ -16,10 +18,12 @@ public class ImageProcessingService
 
     public Task<string> RawImage(string filePath, int draftId, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         var directoryPath = Path.Combine(GetStorageRootPath(), "storage", "final");
         Directory.CreateDirectory(directoryPath);
 
-        var finalFilePath = Path.Combine(directoryPath, $"{draftId}.png");
+        var finalFilePath = Path.Combine(directoryPath, $"{draftId}.webp");
 
         using var sourceBitmap = SKBitmap.Decode(filePath);
         if (sourceBitmap is null)
@@ -59,12 +63,50 @@ public class ImageProcessingService
             paint);
 
         using var image = surface.Snapshot();
-        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
-        using var output = File.OpenWrite(finalFilePath);
-
-        data.SaveTo(output);
+        var encodedBytes = EncodeStickerWebp(image);
+        File.WriteAllBytes(finalFilePath, encodedBytes);
 
         return Task.FromResult(finalFilePath);
+    }
+
+    public Task<string> CreatePreviewPngAsync(string filePath, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        using var sourceBitmap = SKBitmap.Decode(filePath);
+        if (sourceBitmap is null)
+        {
+            throw new InvalidOperationException($"Cannot decode preview image file: {filePath}");
+        }
+
+        using var image = SKImage.FromBitmap(sourceBitmap);
+        using var data = image.Encode(SKEncodedImageFormat.Png, 100)
+            ?? throw new InvalidOperationException("Cannot encode preview image as PNG.");
+
+        var previewFilePath = Path.Combine(
+            Path.GetDirectoryName(filePath) ?? GetStorageRootPath(),
+            $"{Path.GetFileNameWithoutExtension(filePath)}-preview.png");
+
+        File.WriteAllBytes(previewFilePath, data.ToArray());
+        return Task.FromResult(previewFilePath);
+    }
+
+    private static byte[] EncodeStickerWebp(SKImage image)
+    {
+        foreach (var quality in WebpQualitySteps)
+        {
+            using var data = image.Encode(SKEncodedImageFormat.Webp, quality)
+                ?? throw new InvalidOperationException("Cannot encode sticker image as WebP.");
+            var bytes = data.ToArray();
+
+            if (bytes.Length <= MaxStickerFileBytes)
+            {
+                return bytes;
+            }
+        }
+
+        throw new InvalidOperationException(
+            $"Encoded sticker is larger than Telegram limit ({MaxStickerFileBytes} bytes).");
     }
 
     private string GetStorageRootPath()

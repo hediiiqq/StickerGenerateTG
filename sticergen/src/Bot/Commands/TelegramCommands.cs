@@ -6,6 +6,9 @@ public enum TelegramCommands
     Start,
     Help,
     Mypacks,
+    Aimodel,
+    Aimodels,
+    Aistatus,
     Newpack,
     Addsticker,
     Unknown

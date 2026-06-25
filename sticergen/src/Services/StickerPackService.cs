@@ -9,7 +9,7 @@ namespace sticergen.Services;
 
 public class StickerPackService
 {
-    private const string StickerFileName = "sticker.png";
+    private const string StickerFileName = "sticker.webp";
     private const string DefaultStickerType = "static";
 
     private readonly ITelegramBotClient _botClient;

@@ -19,6 +19,9 @@ var host = Host.CreateDefaultBuilder(args).ConfigureAppConfiguration((context, c
 {
     var configuration = context.Configuration;
     services.Configure<TelegramOptions>(configuration.GetSection("Telegram"));
+
+    services.Configure<ImageGenerationOptions>(configuration.GetSection("ImageGeneration"));
+
     var connectionString = configuration.GetConnectionString("DefaultConnection");
     if (string.IsNullOrEmpty(connectionString))
     {
@@ -49,6 +52,12 @@ var host = Host.CreateDefaultBuilder(args).ConfigureAppConfiguration((context, c
     services.AddScoped<FileStorageService>();
     services.AddScoped<ImageProcessingService>();
     services.AddScoped<StickerPackService>();
+    services.AddHttpClient<CloudflareImageProvider>();
+    services.AddHttpClient<StabilityImageProvider>();
+    services.AddScoped<IImageGenerationProvider>(sp => sp.GetRequiredService<StabilityImageProvider>());
+    services.AddScoped<IImageGenerationProvider>(sp => sp.GetRequiredService<CloudflareImageProvider>());
+    services.AddScoped<ImageGenerationSettingsService>();
+    services.AddScoped<ImageGenerationService>();
 
 }).Build();
 await host.RunAsync();

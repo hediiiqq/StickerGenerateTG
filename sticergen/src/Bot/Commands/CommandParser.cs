@@ -52,6 +52,22 @@ public class CommandParser
                 {
                     Type = TelegramCommands.Mypacks
                 };
+            case "aimodel":
+                return new CommandModel()
+                {
+                    Type = TelegramCommands.Aimodel,
+                    Arguments = arguments,
+                };
+            case "aimodels":
+                return new CommandModel()
+                {
+                    Type = TelegramCommands.Aimodels
+                };
+            case "aistatus":
+                return new CommandModel()
+                {
+                    Type = TelegramCommands.Aistatus
+                };
             case "newpack":
                 return new CommandModel()
                 {

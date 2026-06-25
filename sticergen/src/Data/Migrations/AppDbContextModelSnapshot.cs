@@ -109,6 +109,30 @@ namespace sticergen.src.Data.Migrations
                     b.ToTable("DraftStickers");
                 });
 
+            modelBuilder.Entity("sticergen.Data.Models.ImageGenerationSetting", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Model")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ImageGenerationSettings");
+                });
+
             modelBuilder.Entity("sticergen.Data.Models.StickerPack", b =>
                 {
                     b.Property<int>("Id")
