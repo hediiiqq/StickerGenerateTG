@@ -50,6 +50,17 @@ public class TelegramUpdateHandler
             photos = message.ReplyToMessage.Photo;
         }
 
+        if(message.Photo != null) Console.WriteLine("photo: true");
+        else Console.WriteLine("photo: false");
+        if(message.ReplyToMessage != null) Console.WriteLine("reply: true");
+        else Console.WriteLine("reply: false");
+        if(message.ReplyToMessage?.Photo != null)  Console.WriteLine("reply.photo: true");
+        else Console.WriteLine("reply: false");
+        if(message.ReplyToMessage?.Document != null) Console.WriteLine("reply.doc: true");
+        else Console.WriteLine("reply.doc: false");
+        Console.WriteLine(message.Type);
+        Console.WriteLine(message.ReplyToMessage?.Type);
+
         var photoFileId = photos?.Last().FileId;
 
 

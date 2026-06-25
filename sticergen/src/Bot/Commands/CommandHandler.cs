@@ -51,12 +51,12 @@ public class CommandHandler
             case TelegramCommands.Mypacks:
             {
                 // Получаем все черновики текущего пользователя, чтобы показать их в /mypacks.
-                var mypacks = await _draftService.GetUserDraftsAsync(context.UserId, stoppingToken);
+                var mypacks = await _stickerPack.GetStickerPacksAsync(context.UserId, stoppingToken);
                 {
                     var message = "your packs:\n";
                     foreach (var mypack in mypacks)
                     {
-                        message += $"#{mypack.Mode} {mypack.Status} - {mypack.PackTitle} - {mypack.Stickers.Count} \n";
+                        message += $"{mypack.PackTitle} - {mypack.StickerType} - https://t.me/addstickers/{mypack.PackName}\n";
                     }
 
                     await _botClient.SendMessage(context.ChatId, message, cancellationToken: stoppingToken);
@@ -121,6 +121,22 @@ public class CommandHandler
             {
                 // Для добавления стикера пока разбираем только имя пака и стиль.
                 var args = _parser.ParseAddSticker(context.Command.Arguments);
+
+                var parsPack =  await _stickerPack.ParseStickerPackAsync(args.PackName, context.UserId, stoppingToken);
+
+                if (parsPack == null)
+                {
+                    await _botClient.SendMessage(context.ChatId, "пак не найден", cancellationToken: stoppingToken);
+                    break;
+                }
+
+                if (!context.HasPhoto)
+                {
+                    await _botClient.SendMessage(context.ChatId,"Прикрепи фото",cancellationToken: stoppingToken);
+                    break;
+                }
+
+
 
                 await _botClient.SendMessage(context.ChatId,
                     $"addsticker\n packname:{args.PackName}\n style:{args.Style}",

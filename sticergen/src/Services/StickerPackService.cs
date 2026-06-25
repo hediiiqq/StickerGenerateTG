@@ -76,4 +76,18 @@ public class StickerPackService
 
         return $"https://t.me/addstickers/{packName}";
     }
+
+    public async Task<List<StickerPack>> GetStickerPacksAsync(long userId, CancellationToken cancellationToken)
+    {
+        var userPacks = await _db.StickerPacks.Where(x => x.UserId == userId)
+            .ToListAsync(cancellationToken);
+        return userPacks;
+    }
+
+    public async Task<StickerPack> ParseStickerPackAsync(string packName, long userId, CancellationToken cancellationToken)
+    {
+        var findPack = _db.StickerPacks.FirstOrDefault(x => x.PackName == packName && x.UserId == userId);
+        if (findPack == null) return null;
+        return findPack;
+    }
 }
