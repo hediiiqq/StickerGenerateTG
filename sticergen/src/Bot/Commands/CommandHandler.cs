@@ -7,6 +7,9 @@ namespace sticergen.Bot.Commands;
 
 public class CommandHandler
 {
+    private const string PreviewFileName = "preview.png";
+    private const string DefaultStickerEmoji = "🤔";
+
     private readonly ITelegramBotClient _botClient;
     private readonly ArgumentsParser _parser;
     private readonly DraftService _draftService;
@@ -14,8 +17,13 @@ public class CommandHandler
     private readonly ImageProcessingService _imageProcess;
     private readonly StickerPackService _stickerPack;
 
-    public CommandHandler(ITelegramBotClient botClient, ArgumentsParser parser, DraftService draftService,
-        FileStorageService fileService, ImageProcessingService imageProcess, StickerPackService stickerPack)
+    public CommandHandler(
+        ITelegramBotClient botClient,
+        ArgumentsParser parser,
+        DraftService draftService,
+        FileStorageService fileService,
+        ImageProcessingService imageProcess,
+        StickerPackService stickerPack)
     {
         _botClient = botClient;
         _parser = parser;
@@ -27,141 +35,203 @@ public class CommandHandler
 
     public async Task HandleAsync(BotCommandContext context, CancellationToken stoppingToken)
     {
-        // CommandHandler отвечает за реакцию бота после того, как CommandParser уже распознал команду.
         switch (context.Command.Type)
         {
             case TelegramCommands.Start:
-            {
-                await _botClient.SendMessage(context.ChatId, "start", cancellationToken: stoppingToken);
+                await SendStartAsync(context, stoppingToken);
                 break;
-            }
+
             case TelegramCommands.Help:
-            {
-                await _botClient.SendMessage(context.ChatId,
-                    "/start — запустить бота\n" +
-                    "/help — показать помощь\n" +
-                    "/newpack static raw Название пака — создать черновик нового пака\n" +
-                    "/newpack static outline Название пака — создать черновик с outline-стилем\n" +
-                    "/addsticker pack_name raw — добавить стикер в существующий пак\n" +
-                    "/mypacks — показать мои черновики\n\n" +
-                    "Фото можно отправить с подписью-командой или написать команду ответом на фото.",
-                    cancellationToken: stoppingToken);
+                await SendHelpAsync(context, stoppingToken);
                 break;
-            }
+
             case TelegramCommands.Mypacks:
-            {
-                // Получаем все черновики текущего пользователя, чтобы показать их в /mypacks.
-                var mypacks = await _stickerPack.GetStickerPacksAsync(context.UserId, stoppingToken);
-
-                var message = "your packs:\n";
-                foreach (var mypack in mypacks)
-                {
-                    message +=
-                        $"{mypack.PackTitle} - {mypack.StickerType} - https://t.me/addstickers/{mypack.PackName}\n";
-                }
-
-                await _botClient.SendMessage(context.ChatId, message, cancellationToken: stoppingToken);
-
-
+                await SendMyPacksAsync(context, stoppingToken);
                 break;
-            }
+
             case TelegramCommands.Newpack:
-            {
-                // Аргументы команды отделены от имени команды и разбираются отдельно.
-                var args = _parser.ParseNewPack(context.Command.Arguments);
-
-                // Новый стикерпак создаётся только при наличии фотографии.
-                if (!context.HasPhoto)
-                {
-                    await _botClient.SendMessage(
-                        context.ChatId,
-                        "Прикрепи фото к команде или отправь команду ответом на фото.",
-                        cancellationToken: stoppingToken);
-
-                    break;
-                }
-
-                var draft = await _draftService.CreateNewPackDraftAsync(
-                    context.UserId,
-                    context.ChatId,
-                    context.PhotoFileId,
-                    args,
-                    stoppingToken);
-
-                if (context.PhotoFileId != null)
-                {
-                    var originalFilePath =
-                        await _fileService.SaveOriginalPhotoAsync(context.PhotoFileId, draft.Id, stoppingToken);
-                    Console.WriteLine(originalFilePath);
-                    // RawImage подготавливает превью стикера и возвращает путь к готовому PNG-файлу.
-                    var finalFilePath = await _imageProcess.RawImage(originalFilePath, draft.Id, stoppingToken);
-
-                    await _draftService.UpdateDraftStickerFilePathsAsync(draft.Id, originalFilePath, finalFilePath,
-                        stoppingToken);
-
-                    await using var previewStream = File.OpenRead(finalFilePath);
-
-                    var stickerLink = await _stickerPack.CreateStickerPackAsync(draft.Id, stoppingToken);
-
-                    await _botClient.SendPhoto(
-                        context.ChatId,
-                        InputFile.FromStream(stream: previewStream, fileName: "preview.png"),
-                        caption: "Preview raw 512x512",
-                        cancellationToken: stoppingToken);
-                    await _botClient.SendMessage(
-                        context.ChatId,
-                        $"newpack\n stickertype:{args.StickerType}\n" +
-                        $" style:{args.Style}\n packtitle:{args.PackTitle}\n " +
-                        $"photo:{context.HasPhoto}\n fileid:{context.PhotoFileId}\n {finalFilePath}\n" +
-                        $"link :{stickerLink}",
-                        cancellationToken: stoppingToken);
-                }
-
+                await HandleNewPackAsync(context, stoppingToken);
                 break;
-            }
+
             case TelegramCommands.Addsticker:
-            {
-                // Для добавления стикера пока разбираем только имя пака и стиль.
-                var args = _parser.ParseAddSticker(context.Command.Arguments);
-
-                var parsPack = await _stickerPack.ParseStickerPackAsync(args.PackName, context.UserId, stoppingToken);
-
-                if (parsPack == null)
-                {
-                    await _botClient.SendMessage(context.ChatId, "пак не найден", cancellationToken: stoppingToken);
-                    break;
-                }
-
-                if (!context.HasPhoto)
-                {
-                    await _botClient.SendMessage(context.ChatId, "Прикрепи фото", cancellationToken: stoppingToken);
-                    break;
-                }
-
-                await _draftService.CreateAddStickerDraftAsync(context.UserId, context.ChatId, context.PhotoFileId,
-                    args, parsPack, stoppingToken);
-
-                if (context.PhotoFileId != null)
-                {
-                    var originalFilePath =
-                        await _fileService.SaveOriginalPhotoAsync(context.PhotoFileId, parsPack.Id, stoppingToken);
-                }
-
-                await _botClient.SendMessage(context.ChatId,
-                    $"addsticker\n packname:{args.PackName}\n style:{args.Style}",
-                    cancellationToken: stoppingToken);
+                await HandleAddStickerAsync(context, stoppingToken);
                 break;
-            }
+
             case TelegramCommands.Unknown:
-            {
-                await _botClient.SendMessage(context.ChatId, "unknown", cancellationToken: stoppingToken);
-                break;
-            }
             default:
-            {
-                await _botClient.SendMessage(context.ChatId, "unknown", cancellationToken: stoppingToken);
+                await SendUnknownAsync(context, stoppingToken);
                 break;
-            }
         }
+    }
+
+    private async Task SendStartAsync(BotCommandContext context, CancellationToken stoppingToken)
+    {
+        await _botClient.SendMessage(context.ChatId, "start", cancellationToken: stoppingToken);
+    }
+
+    private async Task SendHelpAsync(BotCommandContext context, CancellationToken stoppingToken)
+    {
+        await _botClient.SendMessage(
+            context.ChatId,
+            "/start — запустить бота\n" +
+            "/help — показать помощь\n" +
+            "/newpack static raw Название пака — создать черновик нового пака\n" +
+            "/newpack static outline Название пака — создать черновик с outline-стилем\n" +
+            "/addsticker pack_name raw — добавить стикер в существующий пак\n" +
+            "/mypacks — показать мои черновики\n\n" +
+            "Фото можно отправить с подписью-командой или написать команду ответом на фото.",
+            cancellationToken: stoppingToken);
+    }
+
+    private async Task SendMyPacksAsync(BotCommandContext context, CancellationToken stoppingToken)
+    {
+        var packs = await _stickerPack.GetStickerPacksAsync(context.UserId, stoppingToken);
+        var packLines = packs.Select(pack =>
+            $"{pack.PackTitle} - {pack.StickerType} - https://t.me/addstickers/{pack.PackName}");
+
+        var message = "your packs:\n" + string.Join('\n', packLines);
+
+        await _botClient.SendMessage(context.ChatId, message, cancellationToken: stoppingToken);
+    }
+
+    private async Task HandleNewPackAsync(BotCommandContext context, CancellationToken stoppingToken)
+    {
+        var args = _parser.ParseNewPack(context.Command.Arguments);
+        var photoFileId = context.PhotoFileId;
+
+        if (string.IsNullOrWhiteSpace(args.StickerType) ||
+            string.IsNullOrWhiteSpace(args.Style) ||
+            string.IsNullOrWhiteSpace(args.PackTitle))
+        {
+            await _botClient.SendMessage(
+                context.ChatId,
+                "Формат: /newpack static raw Название пака",
+                cancellationToken: stoppingToken);
+
+            return;
+        }
+
+        if (!context.HasPhoto || photoFileId is null)
+        {
+            await _botClient.SendMessage(
+                context.ChatId,
+                "Прикрепи фото к команде или отправь команду ответом на фото.",
+                cancellationToken: stoppingToken);
+
+            return;
+        }
+
+        var draft = await _draftService.CreateNewPackDraftAsync(
+            context.UserId,
+            context.ChatId,
+            photoFileId,
+            args,
+            stoppingToken);
+
+        var originalFilePath = await _fileService.SaveOriginalPhotoAsync(photoFileId, draft.Id, stoppingToken);
+        var finalFilePath = await _imageProcess.RawImage(originalFilePath, draft.Id, stoppingToken);
+
+        await _draftService.UpdateDraftStickerFilePathsAsync(
+            draft.Id,
+            originalFilePath,
+            finalFilePath,
+            stoppingToken);
+
+        var stickerLink = await _stickerPack.CreateStickerPackAsync(draft.Id, stoppingToken);
+
+        await SendStickerPreviewAsync(context.ChatId, finalFilePath, stoppingToken);
+        await _botClient.SendMessage(
+            context.ChatId,
+            $"newpack\n stickertype:{args.StickerType}\n" +
+            $" style:{args.Style}\n packtitle:{args.PackTitle}\n " +
+            $"photo:{context.HasPhoto}\n fileid:{photoFileId}\n {finalFilePath}\n" +
+            $"link :{stickerLink}",
+            cancellationToken: stoppingToken);
+    }
+
+    private async Task HandleAddStickerAsync(BotCommandContext context, CancellationToken stoppingToken)
+    {
+        var args = _parser.ParseAddSticker(context.Command.Arguments);
+
+        if (string.IsNullOrWhiteSpace(args.PackName) ||
+            string.IsNullOrWhiteSpace(args.Style))
+        {
+            await _botClient.SendMessage(
+                context.ChatId,
+                "Формат: /addsticker pack_name raw",
+                cancellationToken: stoppingToken);
+
+            return;
+        }
+
+        var pack = await _stickerPack.ParseStickerPackAsync(args.PackName, context.UserId, stoppingToken);
+
+        if (pack is null)
+        {
+            await _botClient.SendMessage(context.ChatId, "пак не найден", cancellationToken: stoppingToken);
+            return;
+        }
+
+        var photoFileId = context.PhotoFileId;
+
+        if (!context.HasPhoto || photoFileId is null)
+        {
+            await _botClient.SendMessage(context.ChatId, "Прикрепи фото", cancellationToken: stoppingToken);
+            return;
+        }
+
+        var draft = await _draftService.CreateAddStickerDraftAsync(
+            context.UserId,
+            context.ChatId,
+            photoFileId,
+            args,
+            pack,
+            stoppingToken);
+
+        var originalFilePath = await _fileService.SaveOriginalPhotoAsync(photoFileId, draft.Id, stoppingToken);
+        var finalFilePath = await _imageProcess.RawImage(originalFilePath, draft.Id, stoppingToken);
+
+        await _draftService.UpdateDraftStickerFilePathsAsync(
+            draft.Id,
+            originalFilePath,
+            finalFilePath,
+            stoppingToken);
+
+        await SendStickerPreviewAsync(context.ChatId, finalFilePath, stoppingToken);
+        await _botClient.SendMessage(
+            context.ChatId,
+            "стикер готов к добавлению",
+            cancellationToken: stoppingToken);
+
+        var stickerLink = await _stickerPack.AddStickerToPackAsync(
+            pack.PackName,
+            context.UserId,
+            finalFilePath,
+            DefaultStickerEmoji,
+            stoppingToken);
+
+        await _botClient.SendMessage(
+            context.ChatId,
+            $"link : {stickerLink}",
+            cancellationToken: stoppingToken);
+    }
+
+    private async Task SendStickerPreviewAsync(
+        long chatId,
+        string finalFilePath,
+        CancellationToken stoppingToken)
+    {
+        await using var previewStream = File.OpenRead(finalFilePath);
+
+        await _botClient.SendPhoto(
+            chatId,
+            InputFile.FromStream(stream: previewStream, fileName: PreviewFileName),
+            caption: "Preview raw 512x512",
+            cancellationToken: stoppingToken);
+    }
+
+    private async Task SendUnknownAsync(BotCommandContext context, CancellationToken stoppingToken)
+    {
+        await _botClient.SendMessage(context.ChatId, "unknown", cancellationToken: stoppingToken);
     }
 }

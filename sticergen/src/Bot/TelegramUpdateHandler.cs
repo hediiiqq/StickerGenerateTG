@@ -5,7 +5,6 @@ using Telegram.Bot;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
 
-
 namespace sticergen.Bot;
 
 public class TelegramUpdateHandler
@@ -19,71 +18,35 @@ public class TelegramUpdateHandler
         _serviceProvider = serviceProvider;
     }
 
-    public async Task HandleUpdateAsync(ITelegramBotClient botClient, Update upt, CancellationToken cancellationToken)
+    public async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
     {
-        var message = upt.Message;
-        if (message == null) return;
-
-        string commandText;
-
-        if (message.Text != null)
-        {
-            commandText = message.Text;
-        }
-
-        else if (message.Caption != null)
-        {
-            commandText = message.Caption;
-        }
-        else
+        var message = update.Message;
+        if (message?.From is null)
         {
             return;
         }
 
-        PhotoSize[]? photos = null;
-        if (message.Photo != null)
+        var commandText = message.Text ?? message.Caption;
+        if (string.IsNullOrWhiteSpace(commandText))
         {
-            photos = message.Photo;
+            return;
         }
-        else if (message.ReplyToMessage?.Photo != null)
-        {
-            photos = message.ReplyToMessage.Photo;
-        }
-
-        if(message.Photo != null) Console.WriteLine("photo: true");
-        else Console.WriteLine("photo: false");
-        if(message.ReplyToMessage != null) Console.WriteLine("reply: true");
-        else Console.WriteLine("reply: false");
-        if(message.ReplyToMessage?.Photo != null)  Console.WriteLine("reply.photo: true");
-        else Console.WriteLine("reply: false");
-        if(message.ReplyToMessage?.Document != null) Console.WriteLine("reply.doc: true");
-        else Console.WriteLine("reply.doc: false");
-        Console.WriteLine(message.Type);
-        Console.WriteLine(message.ReplyToMessage?.Type);
-
-        var photoFileId = photos?.Last().FileId;
-
 
         using var scope = _serviceProvider.CreateScope();
         var handler = scope.ServiceProvider.GetRequiredService<CommandHandler>();
-
-
         var command = _parser.Parse(commandText);
 
-
-        if (message.From != null)
+        var context = new BotCommandContext
         {
-            var context = new BotCommandContext
-            {
-                UserId = message.From.Id,
-                ChatId = message.Chat.Id,
-                Command = command,
-                PhotoFileId = photoFileId,
-                HasPhoto = photoFileId != null,
-            };
+            UserId = message.From.Id,
+            ChatId = message.Chat.Id,
+            Command = command,
+            PhotoFileId = GetPhotoFileId(message),
+        };
 
-            await handler.HandleAsync(context, cancellationToken);
-        }
+        context.HasPhoto = context.PhotoFileId is not null;
+
+        await handler.HandleAsync(context, cancellationToken);
     }
 
     public Task HandleErrorAsync(
@@ -94,5 +57,12 @@ public class TelegramUpdateHandler
     {
         Console.WriteLine(exception);
         return Task.CompletedTask;
+    }
+
+    private static string? GetPhotoFileId(Message message)
+    {
+        var photos = message.Photo ?? message.ReplyToMessage?.Photo;
+
+        return photos?.LastOrDefault()?.FileId;
     }
 }

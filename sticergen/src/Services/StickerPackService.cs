@@ -9,6 +9,9 @@ namespace sticergen.Services;
 
 public class StickerPackService
 {
+    private const string StickerFileName = "sticker.png";
+    private const string DefaultStickerType = "static";
+
     private readonly ITelegramBotClient _botClient;
     private readonly AppDbContext _db;
     private readonly PackNameGenerator _nameGen;
@@ -35,17 +38,15 @@ public class StickerPackService
         if (firstSticker == null) return null;
 
         var bot = await _botClient.GetMe(cancellationToken);
-
-
-        var packName = _nameGen.Generate(draft.PackTitle, draft.UserId, draft.Id, bot.Username);
-
-
+        var botUsername = bot.Username
+            ?? throw new InvalidOperationException("Telegram bot username is missing");
+        var packName = _nameGen.Generate(draft.PackTitle, draft.UserId, draft.Id, botUsername);
         var packTitle = draft.PackTitle;
 
         await using var stream = File.OpenRead(firstSticker.FinalFilePath);
 
         var inputSticker = new InputSticker(
-            InputFile.FromStream(stream, "sticker.png"),
+            InputFile.FromStream(stream, StickerFileName),
             StickerFormat.Static,
             new[] { firstSticker.Emoji });
 
@@ -62,17 +63,18 @@ public class StickerPackService
 
         await _db.SaveChangesAsync(cancellationToken);
 
-        var stickerPack = new StickerPack();
+        var stickerPack = new StickerPack
+        {
+            UserId = draft.UserId,
+            ChatId = draft.ChatId,
+            PackName = packName,
+            PackTitle = packTitle,
+            StickerType = DefaultStickerType,
+            CreatedAt = DateTime.UtcNow,
+        };
 
-        stickerPack.UserId = draft.UserId;
-        stickerPack.ChatId = draft.ChatId;
-        stickerPack.PackName = packName;
-        stickerPack.PackTitle = packTitle;
-        stickerPack.StickerType = "static";
-        stickerPack.CreatedAt = DateTime.UtcNow;
         await _db.StickerPacks.AddAsync(stickerPack, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
-
 
         return $"https://t.me/addstickers/{packName}";
     }
@@ -84,10 +86,36 @@ public class StickerPackService
         return userPacks;
     }
 
-    public async Task<StickerPack> ParseStickerPackAsync(string packName, long userId, CancellationToken cancellationToken)
+    public async Task<StickerPack?> ParseStickerPackAsync(
+        string packName,
+        long userId,
+        CancellationToken cancellationToken)
     {
-        var findPack = _db.StickerPacks.FirstOrDefault(x => x.PackName == packName && x.UserId == userId);
-        if (findPack == null) return null;
-        return findPack;
+        return await _db.StickerPacks.FirstOrDefaultAsync(
+            x => x.PackName == packName && x.UserId == userId,
+            cancellationToken);
+    }
+
+    public async Task<string> AddStickerToPackAsync(
+        string packName,
+        long userId,
+        string finalFilePath,
+        string emoji,
+        CancellationToken cancellationToken)
+    {
+        await using var stream = File.OpenRead(finalFilePath);
+
+        var inputSticker = new InputSticker(
+            InputFile.FromStream(stream, StickerFileName),
+            StickerFormat.Static,
+            new[] { emoji });
+
+        await _botClient.AddStickerToSet(
+            userId: userId,
+            name: packName,
+            sticker: inputSticker,
+            cancellationToken: cancellationToken);
+
+        return $"https://t.me/addstickers/{packName}";
     }
 }

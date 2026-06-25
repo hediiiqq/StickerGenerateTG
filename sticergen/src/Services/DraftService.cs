@@ -15,36 +15,51 @@ public class DraftService
     }
 
     public async Task<Draft> CreateNewPackDraftAsync(
-        long userId, long chatId, string? photoFileId, NewPackCommandArgs args, CancellationToken cancellationToken)
+        long userId,
+        long chatId,
+        string? photoFileId,
+        NewPackCommandArgs args,
+        CancellationToken cancellationToken)
     {
-        var draft = new Draft();
-        draft.UserId = userId;
-        draft.ChatId = chatId;
-        draft.Mode = "newpack";
-        draft.PackTitle = args.PackTitle;
-        draft.StickerType = args.StickerType;
-        draft.Style = args.Style;
-        draft.Status = "pending";
-        draft.CreatedAt = DateTime.UtcNow;
+        var draft = new Draft
+        {
+            UserId = userId,
+            ChatId = chatId,
+            Mode = "newpack",
+            PackTitle = args.PackTitle,
+            StickerType = args.StickerType,
+            Style = args.Style,
+            Status = "pending",
+            CreatedAt = DateTime.UtcNow,
+        };
+
         _db.Drafts.Add(draft);
+
         if (photoFileId != null)
         {
-            var draftstiker = new DraftSticker();
-            draftstiker.TelegramFileId = photoFileId;
-            draftstiker.SortOrder = 0;
-            draft.Stickers.Add(draftstiker);
+            draft.Stickers.Add(new DraftSticker
+            {
+                TelegramFileId = photoFileId,
+                SortOrder = 0,
+            });
         }
 
         await _db.SaveChangesAsync(cancellationToken);
         return draft;
     }
 
-    public async Task<DraftSticker?> UpdateDraftStickerFilePathsAsync(int draftId,string originalFile, string finalFile, CancellationToken cancellationToken)
+    public async Task<DraftSticker?> UpdateDraftStickerFilePathsAsync(
+        int draftId,
+        string originalFile,
+        string finalFile,
+        CancellationToken cancellationToken)
     {
         var sticker = await _db.DraftStickers.FirstOrDefaultAsync(x => x.DraftId == draftId, cancellationToken);
-        if (sticker == null)  return null;
+        if (sticker == null) return null;
+
         sticker.OriginalFilePath = originalFile;
         sticker.FinalFilePath = finalFile;
+
         await _db.SaveChangesAsync(cancellationToken);
         return sticker;
     }
@@ -65,32 +80,31 @@ public class DraftService
         StickerPack pack,
         CancellationToken cancellationToken)
     {
-        var draft = new Draft();
-
-        draft.UserId = userId;
-        draft.ChatId = chatId;
-        draft.Mode = "addsticker";
-        draft.PackName = pack.PackName;
-        draft.PackTitle = pack.PackTitle;
-        draft.StickerType = pack.StickerType;
-        draft.Style = args.Style;
-        draft.Status = "pending";
-        draft.CreatedAt = DateTime.UtcNow;
+        var draft = new Draft
+        {
+            UserId = userId,
+            ChatId = chatId,
+            Mode = "addsticker",
+            PackName = pack.PackName,
+            PackTitle = pack.PackTitle,
+            StickerType = pack.StickerType,
+            Style = args.Style,
+            Status = "pending",
+            CreatedAt = DateTime.UtcNow,
+        };
 
         _db.Drafts.Add(draft);
 
         if (photoFileId != null)
         {
-            var draftSticker = new DraftSticker();
-
-            draftSticker.TelegramFileId = photoFileId;
-            draftSticker.SortOrder = 0;
-
-            draft.Stickers.Add(draftSticker);
+            draft.Stickers.Add(new DraftSticker
+            {
+                TelegramFileId = photoFileId,
+                SortOrder = 0,
+            });
         }
 
         await _db.SaveChangesAsync(cancellationToken);
-
         return draft;
     }
 }

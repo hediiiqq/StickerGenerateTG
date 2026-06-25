@@ -6,25 +6,29 @@ public class ArgumentsParser
 {
     public NewPackCommandArgs ParseNewPack(string command)
     {
-        // Ожидаемый формат: /newpack <тип стикера> <стиль> <название пака>.
-        var allArgs = command.Split(" ");
+        var allArgs = SplitArguments(command);
+
         return new NewPackCommandArgs()
         {
-            StickerType = allArgs[0],
-            Style = allArgs[1],
-            // Название пака может состоять из нескольких слов, поэтому склеиваем все оставшиеся аргументы.
+            StickerType = allArgs.ElementAtOrDefault(0) ?? string.Empty,
+            Style = allArgs.ElementAtOrDefault(1) ?? string.Empty,
             PackTitle = string.Join(" ", allArgs.Skip(2)),
         };
     }
 
     public AddStickerCommandArgs ParseAddSticker(string command)
     {
-        // Ожидаемый формат: /addsticker <имя пака> <стиль>.
-        var allArgs = command.Split(" ");
+        var allArgs = SplitArguments(command);
+
         return new AddStickerCommandArgs()
         {
-            PackName =  allArgs[0],
-            Style =   allArgs[1],
+            PackName = allArgs.ElementAtOrDefault(0) ?? string.Empty,
+            Style = allArgs.ElementAtOrDefault(1) ?? string.Empty,
         };
+    }
+
+    private static string[] SplitArguments(string command)
+    {
+        return command.Split(' ', StringSplitOptions.RemoveEmptyEntries);
     }
 }
