@@ -60,6 +60,10 @@ namespace sticergen.src.Data.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("StylePrompt")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<long>("UserId")
                         .HasColumnType("bigint");
 

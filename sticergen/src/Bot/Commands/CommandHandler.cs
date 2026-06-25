@@ -121,6 +121,22 @@ public class CommandHandler
             return;
         }
 
+        if (args.Style != "raw" && args.Style != "outline" && args.Style != "ai")
+        {
+            await _botClient.SendMessage(context.ChatId,
+                "не известный параметр, доступные параметры: raw(исходное изображение без обработки)\n,outline(обводка)\n,ai(обработка ии , нужен промт после |)",
+                cancellationToken: stoppingToken);
+            return;
+        }
+
+        if (args.Style == "ai" && string.IsNullOrWhiteSpace(args.StylePrompt))
+        {
+            await _botClient.SendMessage(context.ChatId,
+                "промт пустой\nФормат для AI:\n/newpack static ai Название пака | описание стилизации ",
+                cancellationToken: stoppingToken);
+            return;
+        }
+
         var draft = await _draftService.CreateNewPackDraftAsync(
             context.UserId,
             context.ChatId,
@@ -209,6 +225,14 @@ public class CommandHandler
             finalFilePath,
             DefaultStickerEmoji,
             stoppingToken);
+
+
+        await _draftService.MarkDraftCreatedAsync(draft.Id, stoppingToken);
+
+        await _botClient.SendMessage(
+            context.ChatId,
+            $"link : {stickerLink}",
+            cancellationToken: stoppingToken);
 
         await _botClient.SendMessage(
             context.ChatId,

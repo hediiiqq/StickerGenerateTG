@@ -8,12 +8,28 @@ public class ArgumentsParser
     {
         var allArgs = SplitArguments(command);
 
-        return new NewPackCommandArgs()
+        var stickerType = allArgs.ElementAtOrDefault(0) ?? string.Empty;
+        var style = allArgs.ElementAtOrDefault(1) ?? string.Empty;
+        var tail = string.Join(" ", allArgs.Skip(2));
+
+        var args = new NewPackCommandArgs
         {
-            StickerType = allArgs.ElementAtOrDefault(0) ?? string.Empty,
-            Style = allArgs.ElementAtOrDefault(1) ?? string.Empty,
-            PackTitle = string.Join(" ", allArgs.Skip(2)),
+            StickerType = stickerType,
+            Style = style,
         };
+
+        if (style == "ai")
+        {
+            var parts = tail.Split('|', 2, StringSplitOptions.TrimEntries);
+
+            args.PackTitle = parts.ElementAtOrDefault(0) ?? string.Empty;
+            args.StylePrompt = parts.ElementAtOrDefault(1) ?? string.Empty;
+
+            return args;
+        }
+
+        args.PackTitle = tail;
+        return args;
     }
 
     public AddStickerCommandArgs ParseAddSticker(string command)

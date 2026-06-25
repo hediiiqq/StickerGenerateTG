@@ -29,6 +29,7 @@ public class DraftService
             PackTitle = args.PackTitle,
             StickerType = args.StickerType,
             Style = args.Style,
+            StylePrompt = args.StylePrompt,
             Status = "pending",
             CreatedAt = DateTime.UtcNow,
         };
@@ -106,5 +107,22 @@ public class DraftService
 
         await _db.SaveChangesAsync(cancellationToken);
         return draft;
+    }
+    public async Task<bool> MarkDraftCreatedAsync(
+        int draftId,
+        CancellationToken cancellationToken)
+    {
+        var draft = await _db.Drafts
+            .FirstOrDefaultAsync(x => x.Id == draftId, cancellationToken);
+
+        if (draft is null)
+        {
+            return false;
+        }
+
+        draft.Status = "created";
+
+        await _db.SaveChangesAsync(cancellationToken);
+        return true;
     }
 }
