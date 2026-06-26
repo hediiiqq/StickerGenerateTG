@@ -26,12 +26,6 @@ public class ImageGenerationService
             return raw;
         }
 
-        if (normalizedStyle == "outline")
-        {
-            var raw = await _imageProcessing.RawImage(originalFilePath, draftId, cancellationToken);
-            return raw;
-        }
-
         if (normalizedStyle == "ai")
         {
             if (string.IsNullOrWhiteSpace(stylePrompt))

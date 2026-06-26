@@ -132,7 +132,7 @@ public class CommandHandler
 
     private async Task SendStartAsync(BotCommandContext context, CancellationToken stoppingToken)
     {
-        await _botClient.SendMessage(context.ChatId, "start", cancellationToken: stoppingToken);
+        await _botClient.SendMessage(context.ChatId, "Эта команда предназначена для запуска бота", cancellationToken: stoppingToken);
     }
 
     private async Task SendHelpAsync(BotCommandContext context, CancellationToken stoppingToken)
@@ -140,11 +140,10 @@ public class CommandHandler
         await _botClient.SendMessage(
             context.ChatId,
             "/start — запустить бота\n" +
-            "/help — показать помощь\n" +
-            "/newpack static raw Название пака — создать черновик нового пака\n" +
-            "/newpack static outline Название пака — создать черновик с outline-стилем\n" +
-            "/newpack static ai Название пака | стиль — создать AI-стикер\n" +
-            "/addsticker pack_name raw — добавить стикер в существующий пак\n" +
+            "/help — показать справку по командам\n" +
+            "/newpack static raw Название пака — создать новый пак без обработки ИИ\n" +
+            "/newpack static ai Название пака | стиль — создать AI-стикер пак\n" +
+            "/addsticker Название пака raw — добавить стикер в существующий пак\n" +
             "/aistatus — показать активный AI provider/model\n" +
             "/aimodels — показать доступные AI модели\n" +
             "/aimodel provider model — переключить AI модель\n" +
@@ -156,10 +155,23 @@ public class CommandHandler
     private async Task SendMyPacksAsync(BotCommandContext context, CancellationToken stoppingToken)
     {
         var packs = await _stickerPack.GetStickerPacksAsync(context.UserId, stoppingToken);
-        var packLines = packs.Select(pack =>
-            $"{pack.PackTitle} - {pack.StickerType} - https://t.me/addstickers/{pack.PackName}");
 
-        var message = "your packs:\n" + string.Join('\n', packLines);
+        if (packs.Count == 0)
+        {
+            await _botClient.SendMessage(
+                context.ChatId,
+                "У тебя пока нет созданных паков.",
+                cancellationToken: stoppingToken);
+
+            return;
+        }
+
+        var packLines = packs.Select(pack =>
+            $"{pack.PackTitle} - {pack.StickerType}\n" +
+            $"/addsticker {pack.PackTitle} raw\n" +
+            $"https://t.me/addstickers/{pack.PackName}");
+
+        var message = "Твои паки:\n" + string.Join("\n\n", packLines);
 
         await _botClient.SendMessage(context.ChatId, message, cancellationToken: stoppingToken);
     }
@@ -252,10 +264,10 @@ public class CommandHandler
             return;
         }
 
-        if (args.Style != "raw" && args.Style != "outline" && args.Style != "ai")
+        if (args.Style != "raw" && args.Style != "ai")
         {
             await _botClient.SendMessage(context.ChatId,
-                "не известный параметр, доступные параметры: raw(исходное изображение без обработки)\n,outline(обводка)\n,ai(обработка ии , нужен промт после |)",
+                "не известный параметр, доступные параметры: raw(исходное изображение без обработки)\n,ai(обработка ии , нужен промт после |)",
                 cancellationToken: stoppingToken);
             return;
         }
@@ -305,7 +317,17 @@ public class CommandHandler
         {
             await _botClient.SendMessage(
                 context.ChatId,
-                "Формат: /addsticker pack_name raw",
+                "Формат: /addsticker Название пака raw",
+                cancellationToken: stoppingToken);
+
+            return;
+        }
+
+        if (args.Style != "raw")
+        {
+            await _botClient.SendMessage(
+                context.ChatId,
+                "Для добавления стикера сейчас доступен только стиль raw.\nФормат: /addsticker Название пака raw",
                 cancellationToken: stoppingToken);
 
             return;
@@ -315,7 +337,10 @@ public class CommandHandler
 
         if (pack is null)
         {
-            await _botClient.SendMessage(context.ChatId, "пак не найден", cancellationToken: stoppingToken);
+            await _botClient.SendMessage(
+                context.ChatId,
+                "Пак не найден. Используй название из /mypacks, например:\n/addsticker Название пака raw",
+                cancellationToken: stoppingToken);
             return;
         }
 
@@ -366,10 +391,6 @@ public class CommandHandler
             $"link : {stickerLink}",
             cancellationToken: stoppingToken);
 
-        await _botClient.SendMessage(
-            context.ChatId,
-            $"link : {stickerLink}",
-            cancellationToken: stoppingToken);
     }
 
     private async Task SendStickerPreviewAsync(

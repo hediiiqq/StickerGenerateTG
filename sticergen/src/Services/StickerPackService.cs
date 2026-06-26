@@ -91,9 +91,14 @@ public class StickerPackService
         long userId,
         CancellationToken cancellationToken)
     {
-        return await _db.StickerPacks.FirstOrDefaultAsync(
-            x => x.PackName == packName && x.UserId == userId,
-            cancellationToken);
+        var packIdentifier = packName.Trim();
+
+        return await _db.StickerPacks
+            .OrderByDescending(x => x.CreatedAt)
+            .FirstOrDefaultAsync(
+                x => x.UserId == userId &&
+                     (x.PackName == packIdentifier || x.PackTitle == packIdentifier),
+                cancellationToken);
     }
 
     public async Task<string> AddStickerToPackAsync(

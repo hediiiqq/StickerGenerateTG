@@ -36,10 +36,23 @@ public class ArgumentsParser
     {
         var allArgs = SplitArguments(command);
 
+        if (allArgs.Length == 0)
+        {
+            return new AddStickerCommandArgs();
+        }
+
+        if (allArgs.Length == 1)
+        {
+            return new AddStickerCommandArgs()
+            {
+                PackName = allArgs[0],
+            };
+        }
+
         return new AddStickerCommandArgs()
         {
-            PackName = allArgs.ElementAtOrDefault(0) ?? string.Empty,
-            Style = allArgs.ElementAtOrDefault(1) ?? string.Empty,
+            PackName = string.Join(" ", allArgs.Take(allArgs.Length - 1)),
+            Style = allArgs[^1],
         };
     }
 

@@ -32,6 +32,12 @@ public class CommandParser
             arguments = command.Substring(firstSpaceIndex + 1);
         }
 
+        var mentionIndex = firstWord.IndexOf('@');
+        if (mentionIndex >= 0)
+        {
+            firstWord = firstWord[..mentionIndex];
+        }
+
         // Здесь текстовая команда Telegram сопоставляется с внутренним enum TelegramCommands.
         switch (firstWord)
         {
