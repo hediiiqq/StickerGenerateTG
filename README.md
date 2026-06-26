@@ -1,36 +1,51 @@
 # Sticergen
 
-## Русский
+Sticergen - Telegram-бот на .NET для создания статичных стикерпаков из фотографий. Проект находится на стадии рабочего MVP: бот принимает фото, готовит изображение под требования Telegram, создает новый sticker set, сохраняет готовый пак в PostgreSQL и умеет добавлять новые стикеры в уже созданный пак.
 
-Sticergen - это Telegram-бот на .NET для подготовки черновиков стикерпаков из фотографий. Сейчас проект умеет принимать команды из текста, подписи к фото или ответа на фото, сохранять черновики в PostgreSQL, скачивать оригинальное изображение из Telegram и делать PNG-превью размером 512 x 512 пикселей.
+AI-обработка уже подключена как экспериментальная ветка: можно выбрать provider/model, отправить фото с промтом и получить стилизованный стикер через Stability AI или Cloudflare Workers AI.
 
-Проект находится в активной разработке: базовый workflow создания черновика уже работает, но публикация готового стикерпака в Telegram и часть пользовательских сценариев еще не реализованы.
+## Текущий статус
 
-### Возможности
+Работает:
 
-- Обработка Telegram-сообщений через long polling.
-- Поддержка команд `/start`, `/help`, `/mypacks`, `/newpack`, `/addsticker`.
-- Создание черновика стикерпака по команде `/newpack`.
-- Привязка первого фото к черновику.
-- Сохранение исходников в `storage/originals`.
-- Генерация итогового PNG-превью в `storage/final`.
-- Хранение черновиков и стикеров в PostgreSQL через Entity Framework Core.
-- Миграции базы данных для таблиц `Drafts` и `DraftStickers`.
+- long polling для Telegram updates;
+- обработка обычных сообщений, подписей к фото, ответов на фото и callback-кнопок;
+- команды `/start`, `/help`, `/newpack`, `/addsticker`, `/mypacks`, `/aistatus`, `/aimodels`, `/aimodel`;
+- создание черновика нового пака в PostgreSQL;
+- скачивание исходного фото в `storage/originals`;
+- подготовка финального `512x512` WebP-файла с прозрачным фоном и лимитом до `512 KB`;
+- PNG-preview для отправки пользователю;
+- создание Telegram sticker set через Bot API;
+- сохранение созданного пака в таблицу `StickerPacks`;
+- добавление нового стикера в существующий пак пользователя;
+- переключение активной AI-модели командой или inline-кнопкой;
+- миграции EF Core для черновиков, стикеров, готовых паков и AI-настроек.
 
-### Технологии
+Еще требует доработки:
 
-- .NET 10
-- C#
+- outline-стиль сейчас технически проходит через raw-обработку, настоящая обводка не реализована;
+- `/start`, unknown-команды и часть ответов остаются техническими;
+- нет полноценного подтверждения через inline-кнопки перед созданием или добавлением стикера;
+- нет тестов и production-инфраструктуры;
+- `.gitignore` пока отсутствует, поэтому локальные `bin/`, `obj/`, `DB/`, `storage/` и graphify-артефакты нужно не коммитить вручную;
+- ошибки Telegram API и AI API пока не всегда превращаются в понятные пользовательские сообщения.
+
+## Технологии
+
+- .NET 10 / C#
 - Telegram.Bot
+- Microsoft.Extensions.Hosting
 - Entity Framework Core
 - PostgreSQL / Npgsql
 - SkiaSharp
-- Microsoft.Extensions.Hosting
+- Stability AI image-to-image
+- Cloudflare Workers AI
 
-### Структура проекта
+## Структура
 
 ```text
 sticergen.sln
+README.md
 sticergen/
   sticergen.csproj
   appsettings.json
@@ -49,22 +64,30 @@ sticergen/
     Services/
   storage/
     originals/
+    generated/
     final/
+graphify-out/
+sticergen/graphify-out/
 ```
 
 Ключевые файлы:
 
-- `src/Program.cs` - настройка host, DI, Telegram-клиента, EF Core и сервисов.
-- `src/Infrastructure/TelegramBotHostedService.cs` - запуск long polling.
-- `src/Bot/TelegramUpdateHandler.cs` - получение текста команды, фото и создание контекста.
-- `src/Bot/Commands/CommandHandler.cs` - выполнение команд бота.
-- `src/Bot/Commands/CommandParser.cs` - определение типа команды.
-- `src/Bot/Commands/ArgumentsParser.cs` - разбор аргументов `/newpack` и `/addsticker`.
-- `src/Services/DraftService.cs` - работа с черновиками в базе.
-- `src/Services/FileStorageService.cs` - скачивание оригинальных фото из Telegram.
-- `src/Services/ImageProcessingService.cs` - подготовка PNG 512 x 512 через SkiaSharp.
+- `sticergen/src/Program.cs` - host, конфигурация, DI, Telegram-клиент, EF Core и сервисы.
+- `sticergen/src/Infrastructure/TelegramBotHostedService.cs` - запуск long polling для message и callback query updates.
+- `sticergen/src/Bot/TelegramUpdateHandler.cs` - извлечение команды, фото и callback-обработки.
+- `sticergen/src/Bot/Commands/CommandHandler.cs` - основной сценарный слой команд бота.
+- `sticergen/src/Bot/Commands/ArgumentsParser.cs` - разбор аргументов `/newpack` и `/addsticker`.
+- `sticergen/src/Services/DraftService.cs` - черновики создания и добавления стикера.
+- `sticergen/src/Services/StickerPackService.cs` - создание sticker set, добавление стикера и список паков.
+- `sticergen/src/Services/ImageGenerationService.cs` - выбор raw/outline/ai-ветки подготовки изображения.
+- `sticergen/src/Services/ImageProcessingService.cs` - resize, прозрачный фон, WebP и PNG-preview.
+- `sticergen/src/Services/StabilityImageProvider.cs` - Stability AI image-to-image.
+- `sticergen/src/Services/CloudflareImageProvider.cs` - Cloudflare Workers AI.
+- `sticergen/src/Services/ImageGenerationSettingsService.cs` - активная AI-модель в БД.
 
-### Команды бота
+Архитектурные graphify-снимки лежат в `graphify-out/graph.html` и `sticergen/graphify-out/graph.html`. Более свежий снимок в корневом `graphify-out/` показывает, что основная точка связности сейчас - `CommandHandler`: через него проходят команды, зависимости, создание паков и callback-переключение AI-модели.
+
+## Команды бота
 
 ```text
 /start
@@ -72,25 +95,78 @@ sticergen/
 /mypacks
 /newpack static raw Название пака
 /newpack static outline Название пака
+/newpack static ai Название пака | описание стилизации
 /addsticker pack_name raw
+/aistatus
+/aimodels
+/aimodel stability sd3.5-medium
+/aimodel cloudflare @cf/runwayml/stable-diffusion-v1-5-img2img
 ```
 
-`/newpack` требует фото. Фото можно отправить с подписью-командой или написать команду ответом на сообщение с фото.
+Фото можно отправить с командой в подписи или написать команду ответом на сообщение с фото.
 
-Текущий статус команд:
+### `/newpack`
 
-- `/start` - отвечает техническим сообщением `start`.
-- `/help` - показывает список команд.
-- `/mypacks` - показывает список черновиков пользователя.
-- `/newpack` - создает черновик, сохраняет фото, генерирует preview PNG и отправляет его в чат.
-- `/addsticker` - пока только разбирает аргументы и отправляет диагностический ответ.
-- неизвестная команда - отвечает техническим сообщением `unknown`.
+Создает черновик, сохраняет фото, готовит финальный файл и вызывает `CreateNewStickerSet`.
 
-### Установка
+Примеры:
+
+```text
+/newpack static raw Мой пак
+/newpack static ai Cyber cats | neon anime sticker style
+```
+
+Поддерживаемые стили:
+
+- `raw` - resize до `512x512`, прозрачное поле, WebP для Telegram;
+- `outline` - пока работает как `raw`, настоящая обводка в планах;
+- `ai` - прогоняет фото через активный AI provider/model, затем готовит Telegram WebP.
+
+### `/addsticker`
+
+Ищет существующий пак пользователя по `pack_name`, создает draft в режиме `addsticker`, готовит файл и вызывает `AddStickerToSet`.
+
+```text
+/addsticker my_pack_123_by_bot raw
+```
+
+Сейчас команда поддерживает raw-пайплайн; AI-стилизация для добавления стикера не оформлена отдельным пользовательским сценарием.
+
+### AI-команды
+
+```text
+/aistatus
+/aimodels
+/aimodel stability sd3.5-medium
+/aimodel stability sd3.5-large
+/aimodel stability sd3.5-large-turbo
+/aimodel cloudflare @cf/runwayml/stable-diffusion-v1-5-img2img
+/aimodel cloudflare @cf/lykon/dreamshaper-8-lcm
+```
+
+`/aimodels` отправляет inline-кнопки. Нажатие сохраняет активную модель в таблицу `ImageGenerationSettings`.
+
+## Данные и файлы
+
+PostgreSQL-модели:
+
+- `Draft` - черновик операции `newpack` или `addsticker`;
+- `DraftSticker` - фото и подготовленные файлы внутри черновика;
+- `StickerPack` - созданный Telegram-пак пользователя;
+- `ImageGenerationSetting` - активный AI provider/model.
+
+Файлы:
+
+- `storage/originals/{draftId}.png` - исходное фото из Telegram;
+- `storage/generated/generated-{guid}.png` - результат AI-генерации;
+- `storage/final/{draftId}.webp` - финальный стикер для Telegram;
+- `storage/final/{draftId}-preview.png` - preview для отправки в чат.
+
+## Установка
 
 1. Установите .NET SDK 10.
 
-2. Поднимите PostgreSQL и создайте базу данных, например `sticergen`.
+2. Поднимите PostgreSQL и создайте базу, например `sticergen`.
 
 3. Перейдите в папку проекта:
 
@@ -104,26 +180,43 @@ cd sticergen
 dotnet restore
 ```
 
-5. Настройте секреты. Не храните токен бота и пароль от базы в git.
+5. Настройте секреты. Не храните токены и пароли в git.
 
 ```bash
 dotnet user-secrets set "Telegram:BotToken" "YOUR_TELEGRAM_BOT_TOKEN"
 dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=localhost;Port=5432;Database=sticergen;Username=postgres;Password=postgres"
 ```
 
-Если `dotnet ef` не установлен:
+Для AI-режима:
+
+```bash
+dotnet user-secrets set "ImageGeneration:Provider" "stability"
+dotnet user-secrets set "ImageGeneration:Model" "sd3.5-medium"
+dotnet user-secrets set "ImageGeneration:StabilityApiKey" "YOUR_STABILITY_API_KEY"
+```
+
+Или для Cloudflare:
+
+```bash
+dotnet user-secrets set "ImageGeneration:Provider" "cloudflare"
+dotnet user-secrets set "ImageGeneration:Model" "@cf/runwayml/stable-diffusion-v1-5-img2img"
+dotnet user-secrets set "ImageGeneration:CloudflareApiKey" "YOUR_CLOUDFLARE_API_KEY"
+dotnet user-secrets set "ImageGeneration:CloudflareAccountId" "YOUR_CLOUDFLARE_ACCOUNT_ID"
+```
+
+6. Установите EF CLI, если он еще не установлен:
 
 ```bash
 dotnet tool install --global dotnet-ef
 ```
 
-6. Примените миграции:
+7. Примените миграции:
 
 ```bash
 dotnet ef database update
 ```
 
-### Запуск
+## Запуск
 
 Из папки `sticergen`:
 
@@ -137,531 +230,49 @@ dotnet run
 Подключён бот: @bot_username
 ```
 
-### Проверка
+## Проверка
+
+Быстрая проверка сборки из корня репозитория:
 
 ```bash
-dotnet build
+dotnet build sticergen.sln
 ```
 
 Минимальная ручная проверка:
 
-1. Напишите боту `/help`.
-2. Отправьте фото с подписью `/newpack static raw Мой пак`.
-3. Проверьте, что бот вернул preview.
-4. Проверьте файлы `storage/originals/{draftId}.png` и `storage/final/{draftId}.png`.
-5. Напишите `/mypacks` и убедитесь, что черновик появился в списке.
-
-### Telegram Sticker Pack Bot - Roadmap
-
-#### Phase 1 - Infrastructure
-
-- [x] Создать solution.
-- [x] Создать GitHub репозиторий.
-- [ ] Настроить `.gitignore`.
-- [x] Подключить `Telegram.Bot`.
-- [x] Подключить PostgreSQL.
-- [x] Подключить Entity Framework Core.
-- [x] Создать `appsettings.json`.
-- [x] Настроить Dependency Injection.
-- [x] Настроить Hosted Service для Telegram Bot.
-- [x] Проверить сборку приложения.
-- [ ] Проверить запуск приложения с реальным токеном и базой.
-
-#### Phase 2 - Database
-
-- [x] Создать `AppDbContext`.
-- [ ] Создать модель `StickerPack`.
-- [x] Создать модель `Draft`.
-- [x] Создать модель `DraftSticker`.
-- [ ] Создать перечисления `Enums`.
-- [x] Настроить связь `Draft` -> `DraftSticker`.
-- [ ] Настроить связи для готовых стикерпаков.
-- [x] Создать первую миграцию.
-- [x] Создать миграцию для `DraftSticker`.
-- [ ] Применить миграции в чистой базе.
-- [ ] Проверить создание таблиц в PostgreSQL.
-
-#### Phase 3 - Telegram Updates
-
-- [x] Реализовать получение `Update`.
-- [x] Реализовать обработку `Message`.
-- [ ] Реализовать обработку `CallbackQuery`.
-- [x] Реализовать базовую обработку ошибок Telegram API.
-- [ ] Добавить логирование через `ILogger`.
-
-#### Phase 4 - Commands
-
-- [x] Команда `/start`.
-- [x] Команда `/help`.
-- [x] Команда `/newpack`.
-- [x] Команда `/addsticker`.
-- [x] Команда `/mypacks`.
-- [ ] Команда `/about`.
-- [ ] Валидация аргументов команд.
-- [x] Обработка неизвестных команд.
-- [ ] Заменить технические ответы на нормальные пользовательские сообщения.
-- [ ] Исправить разбор команд с лишними пробелами.
-
-#### Phase 5 - Draft System
-
-- [x] Создание черновика.
-- [x] Получение черновиков пользователя.
-- [ ] Получение одного черновика по id или имени.
-- [ ] Обновление статуса черновика.
-- [ ] Отмена черновика.
-- [ ] Проверка владельца черновика.
-- [ ] Очистка старых черновиков.
-
-#### Phase 6 - File Storage
-
-- [x] Скачивание фото из Telegram.
-- [x] Сохранение оригинала.
-- [x] Сохранение preview.
-- [ ] Сохранение готового стикера как отдельной сущности.
-- [x] Генерация уникальных имен файлов на основе `draftId`.
-- [ ] Очистка временных файлов.
-
-#### Phase 7 - Image Processing
-
-Raw Style:
-
-- [x] Resize до 512 x 512.
-- [x] Сохранение пропорций.
-- [x] Добавление прозрачного фона.
-- [x] Экспорт изображения в PNG.
-- [ ] Вынести размер 512 в константу.
-
-Outline Style:
-
-- [ ] Создать реализацию outline.
-- [ ] Добавить белую обводку.
-- [ ] Проверить качество результата.
-
-#### Phase 8 - Emoji System
-
-- [ ] Создать `EmojiService`.
-- [ ] Автоматически назначать emoji.
-- [x] Добавить поле `Emoji` в модель `DraftSticker`.
-- [ ] Показывать emoji в preview.
-- [ ] Добавить возможность расширения логики.
-
-#### Phase 9 - Preview Generation
-
-- [ ] Создать `PreviewService`.
-- [x] Генерация preview для одного изображения.
-- [ ] Генерация коллажа для нескольких изображений.
-- [ ] Добавление информации об emoji.
-- [x] Сохранение preview.
-- [x] Отправка preview пользователю.
-
-#### Phase 10 - Inline Buttons
-
-- [ ] Кнопка "Создать".
-- [ ] Кнопка "Перегенерировать".
-- [ ] Кнопка "Отменить".
-- [ ] Проверка владельца черновика.
-- [ ] Защита от повторного нажатия.
-
-#### Phase 11 - Sticker Pack Creation
-
-- [ ] Создание нового стикерпака.
-- [ ] Генерация уникального имени.
-- [ ] Создание Telegram Sticker Set.
-- [ ] Добавление первого стикера.
-- [ ] Сохранение информации о готовом паке в БД.
-- [ ] Отправка ссылки пользователю.
-
-#### Phase 12 - Add Sticker
-
-- [ ] Поиск существующего пака.
-- [ ] Проверка владельца.
-- [ ] Скачивание фото для нового стикера.
-- [ ] Создание preview.
-- [ ] Подтверждение через кнопки.
-- [ ] Добавление стикера в пак.
-
-#### Phase 13 - My Packs
-
-- [x] Получение списка черновиков пользователя.
-- [ ] Получение списка готовых паков пользователя.
-- [ ] Вывод ссылок на паки.
-- [ ] Красивое форматирование ответа.
-- [ ] Обработка пустого списка.
-
-#### Phase 14 - Error Handling
-
-- [x] Фото не прикреплено.
-- [x] Неверная или неизвестная команда.
-- [ ] Неверный формат аргументов.
-- [ ] Неизвестный стиль.
-- [ ] Пак не найден.
-- [ ] Чужой пак.
-- [ ] Ошибка Telegram API с понятным ответом пользователю.
-- [ ] Ошибка обработки изображения.
-- [ ] Черновик не найден.
-- [ ] Истекший черновик.
-
-#### Phase 15 - Production Ready
-
-- [x] Структурировать сервисы.
-- [ ] Убрать дублирование кода.
-- [x] Добавить конфигурацию через Options Pattern.
-- [ ] Добавить логирование через `ILogger`.
-- [ ] Добавить health checks.
-- [ ] Подготовить Dockerfile.
-- [ ] Подготовить `docker-compose`.
-- [x] Подготовить README.
-- [ ] Добавить тесты.
-
-#### Future Features
-
-- [ ] Video stickers.
-- [ ] AI-анализ фото для выбора emoji.
-- [ ] Ручное изменение emoji.
-- [ ] Дополнительные стили.
-- [ ] Поддержка WEBM stickers.
-- [ ] Платные подписки.
-- [ ] Web-панель администратора.
-- [ ] Статистика использования.
-
-### Известные ограничения
-
-- `/addsticker` пока не добавляет файл в черновик.
-- Неполные команды могут приводить к ошибкам разбора аргументов.
-- Лишние пробелы в командах обрабатываются не во всех случаях.
-- Бот пока не создает настоящий Telegram-стикерпак, а только черновик и preview.
-- Пользовательские ответы местами технические и требуют полировки.
-- В репозитории пока нет `.gitignore`, поэтому локальные артефакты нужно контролировать вручную.
-
-## English
-
-Sticergen is a .NET Telegram bot for preparing sticker pack drafts from photos. The current version can read commands from plain text, photo captions, or replies to photos, store drafts in PostgreSQL, download original images from Telegram, and generate 512 x 512 PNG previews.
-
-The project is still in active development. The base draft creation workflow works, but publishing a real Telegram sticker pack and several user-facing flows are not implemented yet.
-
-### Features
-
-- Telegram message handling through long polling.
-- Commands: `/start`, `/help`, `/mypacks`, `/newpack`, `/addsticker`.
-- Draft sticker pack creation through `/newpack`.
-- First photo attachment for a draft.
-- Original image storage in `storage/originals`.
-- Final PNG preview generation in `storage/final`.
-- Draft and sticker persistence in PostgreSQL with Entity Framework Core.
-- Database migrations for `Drafts` and `DraftStickers`.
-
-### Tech Stack
-
-- .NET 10
-- C#
-- Telegram.Bot
-- Entity Framework Core
-- PostgreSQL / Npgsql
-- SkiaSharp
-- Microsoft.Extensions.Hosting
-
-### Project Structure
-
-```text
-sticergen.sln
-sticergen/
-  sticergen.csproj
-  appsettings.json
-  src/
-    Program.cs
-    Bot/
-      TelegramUpdateHandler.cs
-      Commands/
-      Models/
-    Configuration/
-    Data/
-      AppDbContext.cs
-      Models/
-      Migrations/
-    Infrastructure/
-    Services/
-  storage/
-    originals/
-    final/
-```
-
-Important files:
-
-- `src/Program.cs` - host, dependency injection, Telegram client, EF Core, and services.
-- `src/Infrastructure/TelegramBotHostedService.cs` - long polling startup.
-- `src/Bot/TelegramUpdateHandler.cs` - extracts command text, photos, and command context.
-- `src/Bot/Commands/CommandHandler.cs` - executes bot commands.
-- `src/Bot/Commands/CommandParser.cs` - detects command type.
-- `src/Bot/Commands/ArgumentsParser.cs` - parses `/newpack` and `/addsticker` arguments.
-- `src/Services/DraftService.cs` - draft persistence.
-- `src/Services/FileStorageService.cs` - downloads original photos from Telegram.
-- `src/Services/ImageProcessingService.cs` - creates 512 x 512 PNG previews with SkiaSharp.
-
-### Bot Commands
-
-```text
-/start
-/help
-/mypacks
-/newpack static raw Pack title
-/newpack static outline Pack title
-/addsticker pack_name raw
-```
-
-`/newpack` requires a photo. You can send a photo with the command as a caption or reply to a photo with the command.
-
-Current command status:
-
-- `/start` - returns the technical message `start`.
-- `/help` - shows the command list.
-- `/mypacks` - shows the user's draft list.
-- `/newpack` - creates a draft, stores the photo, generates a PNG preview, and sends it back to the chat.
-- `/addsticker` - currently only parses arguments and sends a diagnostic response.
-- unknown command - returns the technical message `unknown`.
-
-### Installation
-
-1. Install .NET SDK 10.
-
-2. Start PostgreSQL and create a database, for example `sticergen`.
-
-3. Go to the project directory:
-
-```bash
-cd sticergen
-```
-
-4. Restore dependencies:
-
-```bash
-dotnet restore
-```
-
-5. Configure secrets. Do not store the bot token or database password in git.
-
-```bash
-dotnet user-secrets set "Telegram:BotToken" "YOUR_TELEGRAM_BOT_TOKEN"
-dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=localhost;Port=5432;Database=sticergen;Username=postgres;Password=postgres"
-```
-
-If `dotnet ef` is not installed:
-
-```bash
-dotnet tool install --global dotnet-ef
-```
-
-6. Apply migrations:
-
-```bash
-dotnet ef database update
-```
-
-### Running
-
-From the `sticergen` directory:
-
-```bash
-dotnet run
-```
-
-On successful startup the console prints:
-
-```text
-Подключён бот: @bot_username
-```
-
-### Verification
-
-```bash
-dotnet build
-```
-
-Minimal manual check:
-
-1. Send `/help` to the bot.
-2. Send a photo with the caption `/newpack static raw My pack`.
-3. Check that the bot returns a preview.
-4. Check `storage/originals/{draftId}.png` and `storage/final/{draftId}.png`.
-5. Send `/mypacks` and confirm that the draft appears in the list.
-
-### Telegram Sticker Pack Bot - Roadmap
-
-#### Phase 1 - Infrastructure
-
-- [x] Create the solution.
-- [x] Create the GitHub repository.
-- [ ] Configure `.gitignore`.
-- [x] Add `Telegram.Bot`.
-- [x] Add PostgreSQL.
-- [x] Add Entity Framework Core.
-- [x] Create `appsettings.json`.
-- [x] Configure Dependency Injection.
-- [x] Configure the Telegram Bot Hosted Service.
-- [x] Verify that the application builds.
-- [ ] Verify startup with a real bot token and database.
-
-#### Phase 2 - Database
-
-- [x] Create `AppDbContext`.
-- [ ] Create the `StickerPack` model.
-- [x] Create the `Draft` model.
-- [x] Create the `DraftSticker` model.
-- [ ] Create `Enums`.
-- [x] Configure the `Draft` -> `DraftSticker` relationship.
-- [ ] Configure relationships for published sticker packs.
-- [x] Create the initial migration.
-- [x] Create the `DraftSticker` migration.
-- [ ] Apply migrations on a clean database.
-- [ ] Verify table creation in PostgreSQL.
-
-#### Phase 3 - Telegram Updates
-
-- [x] Implement `Update` receiving.
-- [x] Implement `Message` handling.
-- [ ] Implement `CallbackQuery` handling.
-- [x] Implement basic Telegram API error handling.
-- [ ] Add logging through `ILogger`.
-
-#### Phase 4 - Commands
-
-- [x] `/start` command.
-- [x] `/help` command.
-- [x] `/newpack` command.
-- [x] `/addsticker` command.
-- [x] `/mypacks` command.
-- [ ] `/about` command.
-- [ ] Command argument validation.
-- [x] Unknown command handling.
-- [ ] Replace technical replies with proper user-facing messages.
-- [ ] Fix command parsing with extra spaces.
-
-#### Phase 5 - Draft System
-
-- [x] Draft creation.
-- [x] User draft list retrieval.
-- [ ] Single draft lookup by id or name.
-- [ ] Draft status update.
-- [ ] Draft cancellation.
-- [ ] Draft owner check.
-- [ ] Old draft cleanup.
-
-#### Phase 6 - File Storage
-
-- [x] Download photos from Telegram.
-- [x] Save the original file.
-- [x] Save the preview.
-- [ ] Save the final sticker as a separate entity.
-- [x] Generate unique filenames based on `draftId`.
-- [ ] Clean temporary files.
-
-#### Phase 7 - Image Processing
-
-Raw Style:
-
-- [x] Resize to 512 x 512.
-- [x] Preserve aspect ratio.
-- [x] Add transparent background.
-- [x] Export image as PNG.
-- [ ] Move the 512 size into a constant.
-
-Outline Style:
-
-- [ ] Implement outline style.
-- [ ] Add white outline.
-- [ ] Verify result quality.
-
-#### Phase 8 - Emoji System
-
-- [ ] Create `EmojiService`.
-- [ ] Assign emoji automatically.
-- [x] Add the `Emoji` field to `DraftSticker`.
-- [ ] Show emoji in previews.
-- [ ] Make emoji logic extensible.
-
-#### Phase 9 - Preview Generation
-
-- [ ] Create `PreviewService`.
-- [x] Generate a preview for one image.
-- [ ] Generate a collage for multiple images.
-- [ ] Add emoji information.
-- [x] Save preview.
-- [x] Send preview to the user.
-
-#### Phase 10 - Inline Buttons
-
-- [ ] "Create" button.
-- [ ] "Regenerate" button.
-- [ ] "Cancel" button.
-- [ ] Owner check.
-- [ ] Protection from repeated clicks.
-
-#### Phase 11 - Sticker Pack Creation
-
-- [ ] Create a new sticker pack.
-- [ ] Generate a unique pack name.
-- [ ] Create a Telegram Sticker Set.
-- [ ] Add the first sticker.
-- [ ] Save published pack information in the database.
-- [ ] Send the pack link to the user.
-
-#### Phase 12 - Add Sticker
-
-- [ ] Find an existing pack.
-- [ ] Check ownership.
-- [ ] Download the new sticker photo.
-- [ ] Create a preview.
-- [ ] Confirm through inline buttons.
-- [ ] Add the sticker to the pack.
-
-#### Phase 13 - My Packs
-
-- [x] Retrieve the user's draft list.
-- [ ] Retrieve the user's published packs.
-- [ ] Show pack links.
-- [ ] Format the response nicely.
-- [ ] Handle an empty list.
-
-#### Phase 14 - Error Handling
-
-- [x] Missing photo.
-- [x] Invalid or unknown command.
-- [ ] Invalid argument format.
-- [ ] Unknown style.
-- [ ] Pack not found.
-- [ ] Pack belongs to another user.
-- [ ] Telegram API error with a clear user-facing response.
-- [ ] Image processing error.
-- [ ] Draft not found.
-- [ ] Expired draft.
-
-#### Phase 15 - Production Ready
-
-- [x] Structure services.
-- [ ] Remove duplicated code.
-- [x] Add configuration through Options Pattern.
-- [ ] Add logging through `ILogger`.
-- [ ] Add health checks.
-- [ ] Prepare Dockerfile.
-- [ ] Prepare `docker-compose`.
-- [x] Prepare README.
-- [ ] Add tests.
-
-#### Future Features
-
-- [ ] Video stickers.
-- [ ] AI photo analysis for emoji selection.
-- [ ] Manual emoji editing.
-- [ ] Additional styles.
-- [ ] WEBM sticker support.
-- [ ] Paid subscriptions.
-- [ ] Web admin panel.
-- [ ] Usage statistics.
-
-### Known Limitations
-
-- `/addsticker` does not add files to drafts yet.
-- Incomplete commands can still break argument parsing.
-- Commands with extra spaces are not handled consistently.
-- The bot does not create a real Telegram sticker pack yet; it only creates a draft and preview.
-- Some user-facing replies are still technical and need polishing.
-- There is no `.gitignore` yet, so local artifacts must be controlled manually.
+1. Отправить боту `/help`.
+2. Отправить фото с подписью `/newpack static raw Мой пак`.
+3. Проверить, что бот отправил preview и ссылку на sticker set.
+4. Отправить `/mypacks` и убедиться, что созданный пак появился в списке.
+5. Отправить новое фото с подписью `/addsticker pack_name raw`.
+6. Проверить, что стикер добавился в Telegram-пак.
+
+Проверка AI-ветки:
+
+1. Настроить ключ Stability или Cloudflare.
+2. Выполнить `/aistatus`.
+3. При необходимости переключить модель через `/aimodels`.
+4. Отправить фото с подписью `/newpack static ai AI пак | cartoon superhero sticker`.
+
+## Roadmap
+
+Ближайшие задачи:
+
+- добавить `.gitignore` и убрать локальные артефакты из рабочей области;
+- заменить технические ответы на нормальные пользовательские сообщения;
+- сделать настоящую outline-обработку с белой обводкой;
+- добавить подтверждение создания/добавления через inline-кнопки;
+- убрать дублирование сообщений в `/addsticker`;
+- добавить понятную обработку ошибок Telegram API, SkiaSharp и AI API;
+- покрыть парсер команд, генератор имен и основные сервисы тестами;
+- подготовить Dockerfile и `docker-compose` для PostgreSQL;
+- добавить логирование через `ILogger`.
+
+Дальше:
+
+- collage preview для нескольких стикеров;
+- ручной выбор emoji;
+- AI-анализ фото для emoji;
+- video/WebM stickers;
+- админ-панель;
+- статистика использования.
