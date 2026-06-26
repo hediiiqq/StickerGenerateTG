@@ -28,6 +28,7 @@
 
     <ItemGroup>
       <Folder Include="storage\final\" />
+      <Folder Include="storage\generated\" />
       <Folder Include="storage\originals\" />
     </ItemGroup>
 

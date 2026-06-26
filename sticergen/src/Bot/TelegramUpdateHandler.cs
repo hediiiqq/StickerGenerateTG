@@ -20,6 +20,14 @@ public class TelegramUpdateHandler
 
     public async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
     {
+        if (update.CallbackQuery?.From is not null)
+        {
+            using var callbackScope = _serviceProvider.CreateScope();
+            var callbackHandler = callbackScope.ServiceProvider.GetRequiredService<CommandHandler>();
+            await callbackHandler.HandleCallbackQueryAsync(update.CallbackQuery, cancellationToken);
+            return;
+        }
+
         var message = update.Message;
         if (message?.From is null)
         {

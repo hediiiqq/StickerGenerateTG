@@ -22,7 +22,7 @@ public class TelegramBotHostedService : BackgroundService
         var bot = await _botClient.GetMe();
         var receiverOptions = new ReceiverOptions
         {
-            AllowedUpdates = new[] { UpdateType.Message }
+            AllowedUpdates = new[] { UpdateType.Message, UpdateType.CallbackQuery }
         };
 
         _botClient.StartReceiving(

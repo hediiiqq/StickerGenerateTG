@@ -2,11 +2,13 @@ using sticergen.Bot.Models;
 using sticergen.Services;
 using Telegram.Bot;
 using Telegram.Bot.Types;
+using Telegram.Bot.Types.ReplyMarkups;
 
 namespace sticergen.Bot.Commands;
 
 public class CommandHandler
 {
+    private const string AiModelCallbackPrefix = "aimodel";
     private const string PreviewFileName = "preview.png";
     private const string DefaultStickerEmoji = "🤔";
 
@@ -82,6 +84,52 @@ public class CommandHandler
         }
     }
 
+    public async Task HandleCallbackQueryAsync(CallbackQuery callbackQuery, CancellationToken stoppingToken)
+    {
+        if (callbackQuery.Message?.Chat is null)
+        {
+            await _botClient.AnswerCallbackQuery(callbackQuery.Id, cancellationToken: stoppingToken);
+            return;
+        }
+
+        var chatId = callbackQuery.Message.Chat.Id;
+        var data = callbackQuery.Data ?? string.Empty;
+        var parts = data.Split('|', 3, StringSplitOptions.TrimEntries);
+
+        if (parts.Length != 3 || parts[0] != AiModelCallbackPrefix)
+        {
+            await _botClient.AnswerCallbackQuery(
+                callbackQuery.Id,
+                "Неизвестная кнопка",
+                cancellationToken: stoppingToken);
+            return;
+        }
+
+        try
+        {
+            var setting = await _imageSettings.SetActiveAsync(parts[1], parts[2], stoppingToken);
+
+            await _botClient.AnswerCallbackQuery(
+                callbackQuery.Id,
+                $"AI: {setting.Provider} / {setting.Model}",
+                cancellationToken: stoppingToken);
+
+            await _botClient.SendMessage(
+                chatId,
+                $"AI модель переключена:\nprovider: {setting.Provider}\nmodel: {setting.Model}",
+                cancellationToken: stoppingToken);
+        }
+        catch (InvalidOperationException ex)
+        {
+            await _botClient.AnswerCallbackQuery(
+                callbackQuery.Id,
+                "Модель не переключена",
+                cancellationToken: stoppingToken);
+
+            await _botClient.SendMessage(chatId, ex.Message, cancellationToken: stoppingToken);
+        }
+    }
+
     private async Task SendStartAsync(BotCommandContext context, CancellationToken stoppingToken)
     {
         await _botClient.SendMessage(context.ChatId, "start", cancellationToken: stoppingToken);
@@ -128,11 +176,21 @@ public class CommandHandler
 
     private async Task SendAiModelsAsync(BotCommandContext context, CancellationToken stoppingToken)
     {
+        var buttons = ImageGenerationModelCatalog.ModelsByProvider
+            .SelectMany(provider => provider.Value.Select(model => new[]
+            {
+                InlineKeyboardButton.WithCallbackData(
+                    $"{provider.Key}: {model}",
+                    $"{AiModelCallbackPrefix}|{provider.Key}|{model}")
+            }))
+            .ToArray();
+
         await _botClient.SendMessage(
             context.ChatId,
             "Доступные AI модели:\n" +
             ImageGenerationModelCatalog.FormatSupportedModels() +
-            "\n\nФормат переключения:\n/aimodel stability sd3.5-medium",
+            "\n\nНажми на модель ниже или используй команду:\n/aimodel stability sd3.5-medium",
+            replyMarkup: new InlineKeyboardMarkup(buttons),
             cancellationToken: stoppingToken);
     }
 
