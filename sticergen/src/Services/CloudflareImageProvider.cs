@@ -15,8 +15,7 @@ public class CloudflareImageProvider : IImageGenerationProvider
     private static readonly IReadOnlyDictionary<string, CloudflareModelProfile> ModelProfiles =
         new Dictionary<string, CloudflareModelProfile>(StringComparer.OrdinalIgnoreCase)
         {
-            ["@cf/runwayml/stable-diffusion-v1-5-img2img"] = new(0.62, 7.5, 28),
-            ["@cf/lykon/dreamshaper-8-lcm"] = new(0, 6.5, 10)
+            ["@cf/runwayml/stable-diffusion-v1-5-img2img"] = new(0.45, 9.0, 20)
         };
 
     private readonly ImageGenerationOptions _options;
@@ -60,6 +59,12 @@ public class CloudflareImageProvider : IImageGenerationProvider
                 model,
                 "@cf/bytedance/stable-diffusion-xl-lightning",
                 StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "Configured Cloudflare model does not support image-to-image input. Use @cf/runwayml/stable-diffusion-v1-5-img2img for AI sticker stylization.");
+        }
+
+        if (IsDreamShaperModel(model))
         {
             throw new InvalidOperationException(
                 "Configured Cloudflare model does not support image-to-image input. Use @cf/runwayml/stable-diffusion-v1-5-img2img for AI sticker stylization.");
@@ -128,19 +133,6 @@ public class CloudflareImageProvider : IImageGenerationProvider
         var profile = GetModelProfile(model);
         var prompt = ImagePromptBuilder.BuildImageToImageStickerPrompt(stylePrompt, model);
 
-        if (IsDreamShaperModel(model))
-        {
-            return new
-            {
-                prompt = ImagePromptBuilder.BuildTextToImageStickerPrompt(stylePrompt, model),
-                negative_prompt = ImagePromptBuilder.StickerNegativePrompt,
-                guidance = profile.Guidance,
-                num_steps = profile.NumSteps,
-                width = ImageSize,
-                height = ImageSize
-            };
-        }
-
         return new
         {
             prompt,
@@ -158,7 +150,7 @@ public class CloudflareImageProvider : IImageGenerationProvider
     {
         return ModelProfiles.TryGetValue(model, out var profile)
             ? profile
-            : new CloudflareModelProfile(0.62, 7.5, 28);
+            : new CloudflareModelProfile(0.45, 9.0, 20);
     }
 
     private static bool IsDreamShaperModel(string model)
@@ -181,7 +173,7 @@ public class CloudflareImageProvider : IImageGenerationProvider
         var canvas = surface.Canvas;
         canvas.Clear(SKColors.White);
 
-        var scale = Math.Max(
+        var scale = Math.Min(
             (float)ImageSize / sourceBitmap.Width,
             (float)ImageSize / sourceBitmap.Height);
 

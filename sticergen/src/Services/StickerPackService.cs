@@ -31,11 +31,12 @@ public class StickerPackService
 
         if (draft == null) return null;
 
-        var firstSticker = draft.Stickers
+        var stickers = draft.Stickers
             .OrderBy(x => x.SortOrder)
-            .FirstOrDefault();
+            .Where(x => !string.IsNullOrWhiteSpace(x.FinalFilePath))
+            .ToList();
 
-        if (firstSticker == null) return null;
+        if (stickers.Count == 0) return null;
 
         var bot = await _botClient.GetMe(cancellationToken);
         var botUsername = bot.Username
@@ -43,20 +44,37 @@ public class StickerPackService
         var packName = _nameGen.Generate(draft.PackTitle, draft.UserId, draft.Id, botUsername);
         var packTitle = draft.PackTitle;
 
-        await using var stream = File.OpenRead(firstSticker.FinalFilePath);
+        var streams = new List<FileStream>();
+        try
+        {
+            var inputStickers = stickers
+                .Select(sticker =>
+                {
+                    var stream = File.OpenRead(sticker.FinalFilePath);
+                    streams.Add(stream);
 
-        var inputSticker = new InputSticker(
-            InputFile.FromStream(stream, StickerFileName),
-            StickerFormat.Static,
-            new[] { firstSticker.Emoji });
+                    return new InputSticker(
+                        InputFile.FromStream(stream, $"sticker-{sticker.Id}.webp"),
+                        StickerFormat.Static,
+                        new[] { sticker.Emoji });
+                })
+                .ToArray();
 
-        await _botClient.CreateNewStickerSet(
-            userId: draft.UserId,
-            name: packName,
-            title: packTitle,
-            stickers: new[] { inputSticker },
-            stickerType: StickerType.Regular,
-            cancellationToken: cancellationToken);
+            await _botClient.CreateNewStickerSet(
+                userId: draft.UserId,
+                name: packName,
+                title: packTitle,
+                stickers: inputStickers,
+                stickerType: StickerType.Regular,
+                cancellationToken: cancellationToken);
+        }
+        finally
+        {
+            foreach (var stream in streams)
+            {
+                await stream.DisposeAsync();
+            }
+        }
 
         draft.PackName = packName;
         draft.Status = "created";
@@ -120,6 +138,26 @@ public class StickerPackService
             name: packName,
             sticker: inputSticker,
             cancellationToken: cancellationToken);
+
+        return $"https://t.me/addstickers/{packName}";
+    }
+
+    public async Task<string> AddStickersToPackAsync(
+        string packName,
+        long userId,
+        IReadOnlyList<string> finalFilePaths,
+        string emoji,
+        CancellationToken cancellationToken)
+    {
+        foreach (var finalFilePath in finalFilePaths)
+        {
+            await AddStickerToPackAsync(
+                packName,
+                userId,
+                finalFilePath,
+                emoji,
+                cancellationToken);
+        }
 
         return $"https://t.me/addstickers/{packName}";
     }

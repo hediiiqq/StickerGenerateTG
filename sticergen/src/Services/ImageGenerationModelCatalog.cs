@@ -13,8 +13,7 @@ public static class ImageGenerationModelCatalog
             ],
             ["cloudflare"] =
             [
-                "@cf/runwayml/stable-diffusion-v1-5-img2img",
-                "@cf/lykon/dreamshaper-8-lcm"
+                "@cf/runwayml/stable-diffusion-v1-5-img2img"
             ]
         };
 

@@ -9,4 +9,5 @@ public class BotCommandContext
     public CommandModel Command { get; set; } = new();
     public bool HasPhoto { get; set; }
     public string? PhotoFileId { get; set; }
+    public List<string> PhotoFileIds { get; set; } = new();
 }

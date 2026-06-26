@@ -16,13 +16,13 @@ public class ImageGenerationService
         _settings = settings;
     }
 
-    public async Task<string> PrepareStickerImageAsync(string originalFilePath, int draftId, string style,
+    public async Task<string> PrepareStickerImageAsync(string originalFilePath, int draftId, int stickerId, string style,
         string stylePrompt, CancellationToken cancellationToken)
     {
         var normalizedStyle = style.ToLowerInvariant();
         if (normalizedStyle == "raw")
         {
-            var raw = await _imageProcessing.RawImage(originalFilePath, draftId, cancellationToken);
+            var raw = await _imageProcessing.RawImage(originalFilePath, draftId, stickerId, cancellationToken);
             return raw;
         }
 
@@ -43,7 +43,7 @@ public class ImageGenerationService
                 activeSetting.Model,
                 cancellationToken);
 
-            var aiDone = await _imageProcessing.RawImage(ai, draftId, cancellationToken);
+            var aiDone = await _imageProcessing.RawImage(ai, draftId, stickerId, cancellationToken);
             return aiDone;
         }
 

@@ -17,7 +17,7 @@ public class DraftService
     public async Task<Draft> CreateNewPackDraftAsync(
         long userId,
         long chatId,
-        string? photoFileId,
+        IReadOnlyList<string> photoFileIds,
         NewPackCommandArgs args,
         CancellationToken cancellationToken)
     {
@@ -36,12 +36,12 @@ public class DraftService
 
         _db.Drafts.Add(draft);
 
-        if (photoFileId != null)
+        for (var i = 0; i < photoFileIds.Count; i++)
         {
             draft.Stickers.Add(new DraftSticker
             {
-                TelegramFileId = photoFileId,
-                SortOrder = 0,
+                TelegramFileId = photoFileIds[i],
+                SortOrder = i,
             });
         }
 
@@ -50,12 +50,12 @@ public class DraftService
     }
 
     public async Task<DraftSticker?> UpdateDraftStickerFilePathsAsync(
-        int draftId,
+        int draftStickerId,
         string originalFile,
         string finalFile,
         CancellationToken cancellationToken)
     {
-        var sticker = await _db.DraftStickers.FirstOrDefaultAsync(x => x.DraftId == draftId, cancellationToken);
+        var sticker = await _db.DraftStickers.FirstOrDefaultAsync(x => x.Id == draftStickerId, cancellationToken);
         if (sticker == null) return null;
 
         sticker.OriginalFilePath = originalFile;
@@ -73,10 +73,22 @@ public class DraftService
         return drafts;
     }
 
+    public async Task<Draft?> GetUserDraftAsync(
+        int draftId,
+        long userId,
+        CancellationToken cancellationToken)
+    {
+        return await _db.Drafts
+            .Include(x => x.Stickers)
+            .FirstOrDefaultAsync(
+                x => x.Id == draftId && x.UserId == userId,
+                cancellationToken);
+    }
+
     public async Task<Draft> CreateAddStickerDraftAsync(
         long userId,
         long chatId,
-        string? photoFileId,
+        IReadOnlyList<string> photoFileIds,
         AddStickerCommandArgs args,
         StickerPack pack,
         CancellationToken cancellationToken)
@@ -96,12 +108,12 @@ public class DraftService
 
         _db.Drafts.Add(draft);
 
-        if (photoFileId != null)
+        for (var i = 0; i < photoFileIds.Count; i++)
         {
             draft.Stickers.Add(new DraftSticker
             {
-                TelegramFileId = photoFileId,
-                SortOrder = 0,
+                TelegramFileId = photoFileIds[i],
+                SortOrder = i,
             });
         }
 
@@ -121,6 +133,27 @@ public class DraftService
         }
 
         draft.Status = "created";
+
+        await _db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    public async Task<bool> MarkDraftDeletedAsync(
+        int draftId,
+        long userId,
+        CancellationToken cancellationToken)
+    {
+        var draft = await _db.Drafts
+            .FirstOrDefaultAsync(
+                x => x.Id == draftId && x.UserId == userId,
+                cancellationToken);
+
+        if (draft is null)
+        {
+            return false;
+        }
+
+        draft.Status = "deleted";
 
         await _db.SaveChangesAsync(cancellationToken);
         return true;

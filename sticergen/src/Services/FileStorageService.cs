@@ -17,6 +17,7 @@ public class FileStorageService
     public async Task<string> SaveOriginalPhotoAsync(
         string fileId,
         int draftId,
+        int stickerId,
         CancellationToken cancellationToken)
     {
         var tgFile = await _botClient.GetFile(fileId, cancellationToken);
@@ -24,7 +25,7 @@ public class FileStorageService
 
         Directory.CreateDirectory(directoryPath);
 
-        var filePath = Path.Combine(directoryPath, $"{draftId}.png");
+        var filePath = Path.Combine(directoryPath, $"{draftId}-{stickerId}.png");
         await using var stream = File.Create(filePath);
 
         await _botClient.DownloadFile(tgFile, stream, cancellationToken);

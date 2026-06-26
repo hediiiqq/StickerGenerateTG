@@ -16,14 +16,14 @@ public class ImageProcessingService
         _env = env;
     }
 
-    public Task<string> RawImage(string filePath, int draftId, CancellationToken cancellationToken)
+    public Task<string> RawImage(string filePath, int draftId, int stickerId, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
         var directoryPath = Path.Combine(GetStorageRootPath(), "storage", "final");
         Directory.CreateDirectory(directoryPath);
 
-        var finalFilePath = Path.Combine(directoryPath, $"{draftId}.webp");
+        var finalFilePath = Path.Combine(directoryPath, $"{draftId}-{stickerId}.webp");
 
         using var sourceBitmap = SKBitmap.Decode(filePath);
         if (sourceBitmap is null)
